@@ -547,14 +547,17 @@ void WiFiManager::handleWifi(boolean scan) {
     page += "<br/>";
   }
 
-  if (_sta_static_ip) {
+   //if (_sta_static_ip) declaration removed
+    String item = FPSTR(HTTP_FORM_OPTIONS_START);
 
-    String item = FPSTR(HTTP_FORM_PARAM);
+    page += item;
+
+    item = FPSTR(HTTP_FORM_PARAM);
     item.replace("{i}", "ip");
     item.replace("{n}", "ip");
     item.replace("{p}", "Static IP");
     item.replace("{l}", "15");
-    item.replace("{v}", _sta_static_ip.toString());
+    item.replace("{v}", "");
 
     page += item;
 
@@ -563,7 +566,7 @@ void WiFiManager::handleWifi(boolean scan) {
     item.replace("{n}", "gw");
     item.replace("{p}", "Static Gateway");
     item.replace("{l}", "15");
-    item.replace("{v}", _sta_static_gw.toString());
+    item.replace("{v}", "");
 
     page += item;
 
@@ -572,12 +575,13 @@ void WiFiManager::handleWifi(boolean scan) {
     item.replace("{n}", "sn");
     item.replace("{p}", "Subnet");
     item.replace("{l}", "15");
-    item.replace("{v}", _sta_static_sn.toString());
+    item.replace("{v}", "");
 
     page += item;
 
-    page += "<br/>";
-  }
+    item = FPSTR(HTTP_FORM_OPTIONS_END);
+
+    page += item;
 
   page += FPSTR(HTTP_FORM_END);
 
