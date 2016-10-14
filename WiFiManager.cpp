@@ -350,7 +350,14 @@ char* WiFiManager::getStatus(int status)
 String WiFiManager::getConfigPortalSSID() {
   return _apName;
 }
-
+void WiFiManager::removeWFConfig() {
+       SPIFFS.begin();
+       if (SPIFFS.exists("/wificonfig.txt")){
+          if (SPIFFS.remove("/wificonfig.txt")){
+             DEBUG_WM(F("wificonfig has been deleted"));
+            }
+       }
+}
 void WiFiManager::resetSettings() {
   DEBUG_WM(F("previous settings invalidated"));
   WiFi.disconnect(true);
@@ -620,18 +627,52 @@ void WiFiManager::handleWifiSave() {
     //_sta_static_ip.fromString(server->arg("ip"));
     String ip = server->arg("ip");
     optionalIPFromString(&_sta_static_ip, ip.c_str());
+    
+
   }
   if (server->arg("gw") != "") {
     DEBUG_WM(F("static gateway"));
     DEBUG_WM(server->arg("gw"));
     String gw = server->arg("gw");
     optionalIPFromString(&_sta_static_gw, gw.c_str());
+    
+
   }
   if (server->arg("sn") != "") {
     DEBUG_WM(F("static netmask"));
     DEBUG_WM(server->arg("sn"));
     String sn = server->arg("sn");
     optionalIPFromString(&_sta_static_sn, sn.c_str());
+    
+
+  }
+  if (server->arg("ip") != "" && server->arg("gw") != "" && server->arg("sn") != "") {
+       SPIFFS.begin();
+       if (!SPIFFS.open("/formated.txt", "r")){
+             SPIFFS.format();
+             File format = SPIFFS.open("/formated.txt", "w+");
+             if (format) { 
+                     format.close();
+                     DEBUG_WM(F("SPIFFS has been formated"));
+                         }
+            }
+
+       File configFile = SPIFFS.open("/wificonfig.txt", "w+");
+       if (configFile) 
+       {
+       StaticJsonBuffer<200> jsonBuffer;
+       JsonObject& data = jsonBuffer.createObject();
+          data["ip"] = server->arg("ip");
+          data["gw"] = server->arg("gw");
+          data["sn"] = server->arg("sn");
+       data.printTo(configFile);
+       configFile.close();
+       DEBUG_WM(F("wificonfig has been writed"));
+       }
+
+  }else{
+       removeWFConfig();
+       _sta_static_ip = IPAddress(0, 0, 0, 0);;
   }
 
   String page = FPSTR(HTTP_HEAD);
@@ -1000,4 +1041,25 @@ String WiFiManager::toStringIp(IPAddress ip) {
   }
   res += String(((ip >> 8 * 3)) & 0xFF);
   return res;
+}
+void WiFiManager::getStatCred(){
+     StaticJsonBuffer<200> jsonBuffer; 
+     IPAddress _ip,_gw,_sn;
+     SPIFFS.begin();
+     File config = SPIFFS.open("/wificonfig.txt", "r");
+     if (config) {
+          String line = config.readStringUntil('\n');
+          config.close();
+          JsonObject& statdata = jsonBuffer.parseObject(line);
+          String static_ip = statdata["ip"];
+          String static_gw = statdata["gw"];
+          String static_sn = statdata["sn"];
+          _ip.fromString(static_ip);
+          _gw.fromString(static_gw);
+          _sn.fromString(static_sn);
+          WiFi.config(_ip,_gw,_sn);
+          Serial.println("Static IP, Gate, Subnet read from wificonfig");
+     }else{
+     Serial.println("Static IP, Gate, Subnet have not been found");
+     }
 }

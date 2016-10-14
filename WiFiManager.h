@@ -16,6 +16,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
+#include "FS.h"
+#include <ArduinoJson.h>
 #include <memory>
 #undef min
 #undef max
@@ -125,7 +127,11 @@ class WiFiManager
     //Scan for WiFiNetworks in range and sort by signal strength
     //space for indices array allocated on the heap and should be freed when no longer required
     int           scanWifiNetworks(int **indicesptr);
-
+    // Get static credentials from config
+    void getStatCred();
+    // Remove WIFI coonfig with static credentials
+    void removeWFConfig();
+    
   private:
     std::unique_ptr<DNSServer>        dnsServer;
     std::unique_ptr<ESP8266WebServer> server;
@@ -213,5 +219,5 @@ class WiFiManager
       return false;
     }
 };
-
 #endif
+
