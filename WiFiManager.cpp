@@ -672,7 +672,6 @@ void WiFiManager::handleWifiSave() {
 
   }else{
        removeWFConfig();
-       _sta_static_ip = IPAddress(0, 0, 0, 0);;
   }
 
   String page = FPSTR(HTTP_HEAD);
