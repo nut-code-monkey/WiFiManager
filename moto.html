@@ -15,6 +15,24 @@ width: 100%;
 height: 100px;
 margin: 20px 0px;
 }
+#slow {
+display: inline-block;
+height: 50px;
+width: 70%;
+}
+#qty {
+height: 50px;
+width: 29%;
+display: inline-block;
+font-size: 20px;
+margin: 20px 0px;
+float:left;
+}
+.inlined {
+width: 100%;
+display: inline-block;
+text-align:center;
+}
 .container {
 margin: auto;
 }
@@ -27,7 +45,16 @@ margin: auto;
 <label>MOTOR CONTROLL</label>
 <button id="go" value="180">+180</button>
 <button id="back" value="0">-180</button>
-<button id="slow" value="1">GoSlow</button>
+<div class="inlined">
+<select id="qty">
+<option value="1">1</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
+<option value="5">5</option>
+</select>
+<button id="slow" value="">GoSlow</button>
+</div>
 </div>
 <script>
 $( "#go, #back" ).on( "click", function() {
@@ -37,7 +64,7 @@ $.get( "http://10.0.0.18/servo", { val: $(this).val() } )
   });
 });
 $( "#slow" ).on( "click", function() {
-$.get( "http://10.0.0.18/servoslow", { val: $(this).val() } )
+$.get( "http://10.0.0.18/servoslow", { val: $("#qty").val() } )
   .done(function( data ) {
     
   });

@@ -44,10 +44,8 @@ std::unique_ptr<ESP8266WebServer> server;
                  servo.write(i);
                  delay(10);
                  }
-                 for(int i=180; i>0; i--){
-                 servo.write(i);
-                 delay(10);
-                 }  
+                 servo.write(0);
+                 delay(500);
         }
           char msg[100];
           strcpy(msg, "Performed cycles : ");
