@@ -1,0 +1,41 @@
+<html>
+<head>
+<style>
+label {
+display: block;
+width: 100%;
+height: 50px;
+margin: 50px 0px 0px 0px;
+text-align: center;
+font-weight:bold;
+}
+button {
+display: block;
+width: 100%;
+height: 100px;
+margin: 20px 0px;
+}
+.container {
+margin: auto;
+}
+</style>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+
+</head>
+<body>
+<div class="container">
+<label>MOTOR CONTROLL</label>
+<button id="go" value="180">+180</button>
+<button id="back" value="0">-180</button>
+</div>
+<script>
+
+$( "button" ).on( "click", function() {
+$.get( "http://10.0.0.18/servo", { val: $(this).val() } )
+  .done(function( data ) {
+    
+  });
+});
+</script>
+</body>
+</html>

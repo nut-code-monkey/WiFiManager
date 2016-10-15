@@ -3,8 +3,10 @@
 #include <DNSServer.h>
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
-       
+#include <Servo.h> 
 
+Servo servo;
+       
 /*
  *const int PIN_LED = 2; // D4 on NodeMCU and WeMos. Controls the onboard LED.
  *
@@ -25,8 +27,22 @@ bool initialConfig = false;
 
 std::unique_ptr<ESP8266WebServer> server;
 
+  void goFeed() {
+        String sval = server->arg("val");
+        int ival = sval.toInt();
+        servo.write(ival);
+          char msg[100];
+          strcpy(msg, "Servo has been moved to : ");
+          strcat(msg, sval.c_str());
+          server->send(200, "text/plain", msg);
+  }
+  
 void setup() {
+
+  servo.attach(D5);
+  servo.write(0); //ставим вал под 0
   // put your setup code here, to run once:
+  
 
   Serial.begin(115200);
   Serial.println("\n Starting");
@@ -56,10 +72,8 @@ void setup() {
     Serial.println(WiFi.localIP());
     Serial.println("Starting http server...");
     server.reset(new ESP8266WebServer(WiFi.localIP(), 80));
-    server->on("/test", []() {
-    server->send(200, "text/plain", "this works as well");
-  });
-    server->begin();
+        server->on("/servo", goFeed );
+        server->begin();
     Serial.println("Custom HTTP server started");
   
   }

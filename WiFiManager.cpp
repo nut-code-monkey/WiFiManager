@@ -13,6 +13,8 @@
 
 #include "WiFiManager.h"
 
+boolean setStatic = false;
+
 WiFiManagerParameter::WiFiManagerParameter(const char *custom) {
   _id = NULL;
   _placeholder = NULL;
@@ -266,19 +268,17 @@ boolean  WiFiManager::startConfigPortal(char const *apName, char const *apPasswo
 int WiFiManager::connectWifi(String ssid, String pass) {
   DEBUG_WM(F("Connecting wifi with new parameters..."));
   if (ssid != "") {
-	resetSettings(); /*Disconnect and wipe out old values. If you don't do this
-    esp8266 will sometimes lock up when SSID or password is different to
-	the already stored values and device is in the process of trying to connect
-	to the network. Mostly it doesn't but occasionally it does.
-	*/
+	resetSettings(); 
   // check if we've got static_ip settings, if we do, use those.
-  if (_sta_static_ip) {
+  if (setStatic) {
 	    DEBUG_WM(F("Custom STA IP/GW/Subnet"));
-	    WiFi.config(_sta_static_ip, _sta_static_gw, _sta_static_sn);
-	    DEBUG_WM(WiFi.localIP());
-  }
+	    WiFi.config(_sta_static_ip, _sta_static_gw, _sta_static_sn); 
+                 }
 	WiFi.mode(WIFI_AP_STA); //It will start in station mode if it was previously in AP mode.
     WiFi.begin(ssid.c_str(), pass.c_str());// Start Wifi with new values.
+         if (_sta_static_ip && !setStatic) { 
+               DEBUG_WM(F("Need reset to set new credentials"));  
+            };
   } else if(!WiFi.SSID()) {
       DEBUG_WM(F("No saved credentials"));
   }
@@ -669,9 +669,11 @@ void WiFiManager::handleWifiSave() {
        configFile.close();
        DEBUG_WM(F("wificonfig has been writed"));
        }
+       setStatic = true;
 
   }else{
        removeWFConfig();
+       setStatic = false;
   }
 
   String page = FPSTR(HTTP_HEAD);
