@@ -36,6 +36,24 @@ std::unique_ptr<ESP8266WebServer> server;
           strcat(msg, sval.c_str());
           server->send(200, "text/plain", msg);
   }
+  void goFeedSlow() {
+        String sval = server->arg("val");
+        int ival = sval.toInt();
+        for(int a=0; a<ival; a++){
+              for(int i=0; i<180; i++){
+                 servo.write(i);
+                 delay(10);
+                 }
+                 for(int i=180; i>0; i--){
+                 servo.write(i);
+                 delay(10);
+                 }  
+        }
+          char msg[100];
+          strcpy(msg, "Performed cycles : ");
+          strcat(msg, sval.c_str());
+          server->send(200, "text/plain", msg);
+  }
   
 void setup() {
 
@@ -73,6 +91,7 @@ void setup() {
     Serial.println("Starting http server...");
     server.reset(new ESP8266WebServer(WiFi.localIP(), 80));
         server->on("/servo", goFeed );
+        server->on("/servoslow", goFeedSlow );
         server->begin();
     Serial.println("Custom HTTP server started");
   

@@ -27,11 +27,17 @@ margin: auto;
 <label>MOTOR CONTROLL</label>
 <button id="go" value="180">+180</button>
 <button id="back" value="0">-180</button>
+<button id="slow" value="1">GoSlow</button>
 </div>
 <script>
-
-$( "button" ).on( "click", function() {
+$( "#go, #back" ).on( "click", function() {
 $.get( "http://10.0.0.18/servo", { val: $(this).val() } )
+  .done(function( data ) {
+    
+  });
+});
+$( "#slow" ).on( "click", function() {
+$.get( "http://10.0.0.18/servoslow", { val: $(this).val() } )
   .done(function( data ) {
     
   });
