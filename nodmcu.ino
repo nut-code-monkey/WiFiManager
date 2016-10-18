@@ -3,7 +3,7 @@
 #include <DNSServer.h>
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
-#include <Servo.h> 
+#include <Servo.h>
 
 Servo servo;
        
@@ -15,6 +15,8 @@ Servo servo;
  * until the computer is rebooted on windows machines.
  */
 const int TRIGGER_PIN = D3; // D3 on NodeMCU and WeMos.
+const int LED_PIN = D7; //Diod pin
+const int MOTOR_PIN = D5; //Diod pin
 /*
  * Alternative trigger pin. Needs to be connected to a button to use this pin. It must be a momentary connection
  * not connected permanently to ground. Either trigger pin will work.
@@ -26,9 +28,8 @@ const int TRIGGER_PIN = D3; // D3 on NodeMCU and WeMos.
 bool initialConfig = false;
 
 std::unique_ptr<ESP8266WebServer> server;
-
-  void goFeed() {
-        String sval = server->arg("val");
+//-------------main functions----------------------------------------
+  void goFeed(String sval) {
         int ival = sval.toInt();
         servo.write(ival);
           char msg[100];
@@ -36,32 +37,50 @@ std::unique_ptr<ESP8266WebServer> server;
           strcat(msg, sval.c_str());
           server->send(200, "text/plain", msg);
   }
-  void goFeedSlow() {
-        String sval = server->arg("val");
+  void goFeedSlow(String sval) {
         int ival = sval.toInt();
         for(int a=0; a<ival; a++){
               for(int i=0; i<180; i++){
+                 goblink(i);
                  servo.write(i);
                  delay(10);
                  }
-                 servo.write(0);
-                 delay(500);
+                 for(int i=180; i>0; i--){
+                 goblink(i);
+                 servo.write(i);
+                 delay(5);
+                 }
+                 delay(200); // for fill the bank))
+                 //servo.write(0);   // replaced by for for noise reduce
+                 //delay(500);
         }
           char msg[100];
           strcpy(msg, "Performed cycles : ");
           strcat(msg, sval.c_str());
           server->send(200, "text/plain", msg);
   }
-  
+  void goblink(int i){ 
+    if ((i%10) == 0){ 
+  bool state = digitalRead(LED_PIN);
+  digitalWrite(LED_PIN, !state);
+   }
+  }
+  void checkRepo(int interval){
+    
+  }
+//------------- end main functions----------------------------------------  
 void setup() {
-
-  servo.attach(D5);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH); //turn off led  
+  int start_time = millis(); // remember starttime
+  servo.attach(MOTOR_PIN);
   servo.write(0); //ставим вал под 0
   // put your setup code here, to run once:
   
 
   Serial.begin(115200);
-  Serial.println("\n Starting");
+  Serial.print("\n Starting at :");
+  Serial.println(start_time);
   WiFi.printDiag(Serial); //Remove this line if you do not want to see WiFi password printed
   if (WiFi.SSID()==""){
     Serial.println("We haven't got any access point credentials, so get them now");   
@@ -88,8 +107,12 @@ void setup() {
     Serial.println(WiFi.localIP());
     Serial.println("Starting http server...");
     server.reset(new ESP8266WebServer(WiFi.localIP(), 80));
-        server->on("/servo", goFeed );
-        server->on("/servoslow", goFeedSlow );
+        server->on("/servo", [](){ 
+          goFeed(server->arg("val")); 
+        });
+        server->on("/servoslow", [](){
+          goFeedSlow(server->arg("val")); 
+        });
         server->begin();
     Serial.println("Custom HTTP server started");
   
