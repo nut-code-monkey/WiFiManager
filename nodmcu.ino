@@ -5,6 +5,12 @@
 #include <WiFiManager.h>
 #include <Servo.h>
 
+extern "C" {
+  #include "user_interface.h"
+}
+
+
+
 Servo servo;
        
 /*
@@ -16,7 +22,7 @@ Servo servo;
  */
 const int TRIGGER_PIN = D3; // D3 on NodeMCU and WeMos.
 const int LED_PIN = D7; //Diod pin
-const int MOTOR_PIN = D5; //Diod pin
+const int MOTOR_PIN = D5; //Motor pin
 /*
  * Alternative trigger pin. Needs to be connected to a button to use this pin. It must be a momentary connection
  * not connected permanently to ground. Either trigger pin will work.
@@ -36,6 +42,7 @@ std::unique_ptr<ESP8266WebServer> server;
           strcpy(msg, "Servo has been moved to : ");
           strcat(msg, sval.c_str());
           server->send(200, "text/plain", msg);
+          Serial.println(sval);
   }
   void goFeedSlow(String sval) {
         int ival = sval.toInt();
@@ -58,6 +65,7 @@ std::unique_ptr<ESP8266WebServer> server;
           strcpy(msg, "Performed cycles : ");
           strcat(msg, sval.c_str());
           server->send(200, "text/plain", msg);
+          Serial.println(sval);
   }
   void goblink(int i){ 
     if ((i%10) == 0){ 
@@ -71,6 +79,7 @@ std::unique_ptr<ESP8266WebServer> server;
 //------------- end main functions----------------------------------------  
 void setup() {
   pinMode(LED_PIN, OUTPUT);
+  pinMode(TRIGGER_PIN, INPUT_PULLUP);
   digitalWrite(LED_PIN, HIGH); //turn off led  
   int start_time = millis(); // remember starttime
   servo.attach(MOTOR_PIN);
@@ -98,8 +107,7 @@ void setup() {
     Serial.print(" secs in setup() connection result is ");
     Serial.println(connRes);
   }
-  pinMode(TRIGGER_PIN, INPUT_PULLUP);
-  
+
   if (WiFi.status()!=WL_CONNECTED){
     Serial.println("failed to connect, finishing setup anyway");
   } else{
@@ -107,6 +115,9 @@ void setup() {
     Serial.println(WiFi.localIP());
     Serial.println("Starting http server...");
     server.reset(new ESP8266WebServer(WiFi.localIP(), 80));
+        server->on("/whoami", [](){ 
+          server->send(200, "text/plain", "{\"device_name\" : \"PetFeeder\", \"version\" : \"1.0\"}"); 
+        });
         server->on("/servo", [](){ 
           goFeed(server->arg("val")); 
         });
@@ -146,5 +157,7 @@ void loop() {
 
 
   // put your main code here, to run repeatedly:
+    if (WiFi.status()==WL_CONNECTED){
   server->handleClient();
+    }
 }
