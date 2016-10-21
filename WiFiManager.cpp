@@ -13,6 +13,10 @@
 
 #include "WiFiManager.h"
 
+extern "C" {
+  #include "user_interface.h"
+}
+
 boolean setStatic = false;
 
 WiFiManagerParameter::WiFiManagerParameter(const char *custom) {
@@ -273,11 +277,13 @@ int WiFiManager::connectWifi(String ssid, String pass) {
   if (setStatic) {
 	    DEBUG_WM(F("Custom STA IP/GW/Subnet"));
 	    WiFi.config(_sta_static_ip, _sta_static_gw, _sta_static_sn); 
+                 }else{
                  }
 	WiFi.mode(WIFI_AP_STA); //It will start in station mode if it was previously in AP mode.
     WiFi.begin(ssid.c_str(), pass.c_str());// Start Wifi with new values.
          if (_sta_static_ip && !setStatic) { 
-               DEBUG_WM(F("Need reset to set new credentials"));  
+               DEBUG_WM(F("No Need reset to set new credentials"));
+             (void)wifi_station_dhcpc_start();
             };
   } else if(!WiFi.SSID()) {
       DEBUG_WM(F("No saved credentials"));
@@ -361,7 +367,7 @@ void WiFiManager::removeWFConfig() {
 void WiFiManager::resetSettings() {
   DEBUG_WM(F("previous settings invalidated"));
   WiFi.disconnect(true);
-  delay(200);
+  delay(1000);
   return;
 }
 void WiFiManager::setTimeout(unsigned long seconds) {
