@@ -5,11 +5,6 @@
 #include <WiFiManager.h>
 #include <Servo.h>
 
-extern "C" {
-  #include "user_interface.h"
-}
-
-
 
 Servo servo;
        
@@ -73,6 +68,13 @@ std::unique_ptr<ESP8266WebServer> server;
   digitalWrite(LED_PIN, !state);
    }
   }
+  void doblink(int pin, int count = 1, int timeout = 500){
+    for(int i=0; i<count; i++){
+         digitalWrite(pin, LOW);
+         delay(timeout); 
+         digitalWrite(pin, HIGH);
+    }
+  }
   void checkRepo(int interval){
     
   }
@@ -126,7 +128,8 @@ void setup() {
         });
         server->begin();
     Serial.println("Custom HTTP server started");
-  
+    doblink(LED_PIN, 1, 5000);
+    
   }
 }
 
