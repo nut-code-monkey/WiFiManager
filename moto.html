@@ -38,6 +38,24 @@ text-align:center;
 .container {
 margin: auto;
 }
+.whoami {
+text-align:center;
+}
+.ipconf {
+margin: 0px auto;
+text-align:center;
+}
+button#checkdevise {
+display:inline;
+width:auto;
+height: auto;
+}
+.success-color {
+color: green;
+}
+.fail-color {
+color: red;
+}
 </style>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
 
@@ -45,6 +63,10 @@ margin: auto;
 <body>
 <div class="container">
 <label>MOTOR CONTROLL</label>
+<div class="ipconf">
+Devise IP <input type="text" placeholder="192.168.0.1"><button id="checkdevise">Check it</button>
+</div>
+<div class="whoami"></div>
 <button id="go" value="180">+180</button>
 <button id="back" value="0">-180</button>
 <div class="inlined">
@@ -59,18 +81,43 @@ margin: auto;
 </div>
 </div>
 <script>
+function getIP(){
+return $(".ipconf INPUT").val();
+}
+
+$( "#checkdevise" ).on( "click", function() {
+currentIP = getIP();
+$.ajax({
+  url: "http://"+ currentIP +"/whoami",
+  timeout: 5000,
+  beforeSend: function() {
+     $(".whoami").removeClass("fail-color success-color");
+     $(".whoami").text("Cheking devise with IP "+ currentIP + ". Keep calm!");
+    }
+  })
+  .done(function( data ) {
+    $(".whoami").text("Devise online: " + data.device_name + " ver." + data.version);
+    $(".whoami").removeClass("fail-color").addClass("success-color");
+  })
+  .fail(function() {
+    $(".whoami").text("Devise not found on IP "+ currentIP);
+    $(".whoami").removeClass("success-color").addClass("fail-color");  
+  }); 
+});
+
 $( "#go, #back" ).on( "click", function() {
-$.get( "http://10.0.0.18/servo", { val: $(this).val() } )
+$.get( "http://"+ getIP() +"/servo", { val: $(this).val() } )
   .done(function( data ) {
-    
   });
 });
+
 $( "#slow" ).on( "click", function() {
-$.get( "http://10.0.0.18/servoslow", { val: $("#qty").val() } )
-  .done(function( data ) {
-    
+petfeederIP = $(".ipconf INPUT").val();
+$.get( "http://"+  getIP()  + "/servoslow", { val: $("#qty").val() } )
+  .done(function( data ) {   
   });
 });
+
 </script>
 </body>
 </html>
