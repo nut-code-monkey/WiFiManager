@@ -16,6 +16,7 @@ display: block;
 width: 100%;
 height: 100px;
 margin: 20px 0px;
+font-size: 20px;
 }
 #slow {
 display: inline-block;
@@ -45,10 +46,14 @@ text-align:center;
 margin: 0px auto;
 text-align:center;
 }
+.ipconf input {
+height: 100px;
+width:70%;
+font-size: 20px;
+} 
 button#checkdevise {
 display:inline;
-width:auto;
-height: auto;
+width:30%;
 }
 .success-color {
 color: green;
@@ -64,7 +69,7 @@ color: red;
 <div class="container">
 <label>MOTOR CONTROLL</label>
 <div class="ipconf">
-Devise IP <input type="text" placeholder="192.168.0.1"><button id="checkdevise">Check it</button>
+<input type="text" placeholder="Devise IP"><button id="checkdevise">Check it</button>
 </div>
 <div class="whoami"></div>
 <button id="go" value="180">+180</button>
