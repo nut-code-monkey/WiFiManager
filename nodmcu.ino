@@ -17,19 +17,19 @@ Servo servo;
 const int TRIGGER_PIN = D3; // D3 on NodeMCU and WeMos.
 const int LED_PIN = D7; //Diod pin
 const int MOTOR_PIN = D5; //Motor pin
+
+const int REPOSITORY_INTERVAL = 20000; //Repository interval check, milisecond
 const int HTTPPORT = 80;
-const char* HOST = "345.kiev.ua"; //host for remote job
-String URL = "/publicfiles.php?id="; //url for check state, where id is devise MAC /without ":"
+const char* HOST = "345.kiev.ua"; //Repository adress for remote job
+String URL = "/1.php?id="; //url for check state, where id is devise MAC /without ":"
 
 /*
  * Alternative trigger pin. Needs to be connected to a button to use this pin. It must be a momentary connection
  * not connected permanently to ground. Either trigger pin will work.
- *
  * const int TRIGGER_PIN2 = 13; // D7 on NodeMCU and WeMos.
 */
 
-// Indicates whether ESP has WiFi credentials saved from previous session
-bool initialConfig = false;
+bool initialConfig = false; // Indicates whether ESP has WiFi credentials saved from previous session
 
 std::unique_ptr<ESP8266WebServer> server;
 SimpleTimer timer;
@@ -78,17 +78,17 @@ SimpleTimer timer;
          digitalWrite(pin, HIGH);
     }
   }
-  void checkRepo(){
+  void checkRepository(){
     // Use WiFiClient class to create TCP connections
       WiFiClient client;
   if (!client.connect(HOST, HTTPPORT)) { Serial.println("connection to remote server failed"); return; }
   // We now create a URI for the request
-  URL += getID(WiFi.macAddress());
+  String append_url = getID(WiFi.macAddress());
   Serial.print("Requesting URL: ");
-  Serial.println(URL);
+  Serial.println(URL + append_url);
   
   // This will send the request to the server
-  client.print(String("GET ") + URL + " HTTP/1.1\r\n" +
+  client.print(String("GET ") + URL + append_url + " HTTP/1.1\r\n" +
                "Host: " + HOST + "\r\n" + 
                "Connection: close\r\n\r\n");
   unsigned long timeout = millis();
@@ -102,17 +102,27 @@ SimpleTimer timer;
   // Read all the lines of the reply from server and print them to Serial
   while(client.available()){
     String line = client.readStringUntil('\r');
-    Serial.print(line);
+    Serial.println(line);
+    CheckRemoteFeedback(line);
    }
  }
-String getID(String str){
+ void CheckRemoteFeedback(String json){
+     StaticJsonBuffer<200> jsonBuffer;
+     JsonObject& jobj = jsonBuffer.parseObject(json);
+     if (!jobj.success()){
+         Serial.println("parseObject() failed");
+         return;
+         }
+         //check server answer here. We are here only if json has been parsed successfuly
+         String did = jobj["devise_id"];
+         Serial.print("Server ansewer: "); 
+         Serial.println(did); 
+ }
+ String getID(String str){
   int j=0;
   String dev_id;
   for(int i=0; i <17; i++){
-      if(str[i]!=':'){
-          dev_id += str[i];
-          j++;
-         }
+      if(str[i]!=':'){ dev_id += str[i]; j++; }
       }
       return dev_id;
 }
@@ -125,7 +135,7 @@ void setup() {
   servo.attach(MOTOR_PIN);
   servo.write(0); //ставим вал под 0
   
-  timer.setInterval(20000, checkRepo);
+  timer.setInterval(REPOSITORY_INTERVAL, checkRepository);
   
   Serial.begin(115200);
   Serial.print("\n Starting at :");
@@ -176,12 +186,10 @@ void loop() {
     Serial.println("Configuration portal requested.");
      server.reset(new ESP8266WebServer(WiFi.localIP(), 80));
      
-     digitalWrite(LED_BUILTIN, LOW); // turn the LED on by making the voltage LOW to tell us we are in configuration mode.
-    //Local intialization. Once its business is done, there is no need to keep it around
+     digitalWrite(LED_BUILTIN, LOW); // turn the LED on by making the voltage LOW to tell us we are in configuration mode. Local intialization. Once its business is done, there is no need to keep it around
     WiFiManager wifiManager;
 
-    //it starts an access point 
-    //and goes into a blocking loop awaiting configuration
+    //it starts an access point and goes into a blocking loop awaiting configuration
     if (!wifiManager.startConfigPortal("GOFeeder")) {
       Serial.println("Not connected to WiFi but continuing anyway.");
     } else {
@@ -189,11 +197,9 @@ void loop() {
       Serial.println("connected...yeey :)");
     }
     digitalWrite(LED_BUILTIN, HIGH); // Turn led off as we are not in configuration mode.
-    ESP.reset(); // This is a bit crude. For some unknown reason webserver can only be started once per boot up 
-    // so resetting the device allows to go back into config mode again when it reboots.
+    ESP.reset(); // This is a bit crude. For some unknown reason webserver can only be started once per boot up so resetting the device allows to go back into config mode again when it reboots.
     delay(5000);
   }
-
 
   // put your main code here, to run repeatedly:
     if (WiFi.status()==WL_CONNECTED){
