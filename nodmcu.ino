@@ -102,7 +102,6 @@ SimpleTimer timer;
   // Read all the lines of the reply from server and print them to Serial
   while(client.available()){
     String line = client.readStringUntil('\r');
-    Serial.println(line);
     CheckRemoteFeedback(line);
    }
  }
