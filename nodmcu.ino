@@ -4,10 +4,9 @@
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
 #include <Servo.h>
-
+#include <SimpleTimer.h>
 
 Servo servo;
-       
 /*
  *const int PIN_LED = 2; // D4 on NodeMCU and WeMos. Controls the onboard LED.
  *
@@ -18,6 +17,10 @@ Servo servo;
 const int TRIGGER_PIN = D3; // D3 on NodeMCU and WeMos.
 const int LED_PIN = D7; //Diod pin
 const int MOTOR_PIN = D5; //Motor pin
+const int HTTPPORT = 80;
+const char* HOST = "345.kiev.ua"; //host for remote job
+String URL = "/publicfiles.php?id="; //url for check state, where id is devise MAC /without ":"
+
 /*
  * Alternative trigger pin. Needs to be connected to a button to use this pin. It must be a momentary connection
  * not connected permanently to ground. Either trigger pin will work.
@@ -29,6 +32,8 @@ const int MOTOR_PIN = D5; //Motor pin
 bool initialConfig = false;
 
 std::unique_ptr<ESP8266WebServer> server;
+SimpleTimer timer;
+
 //-------------main functions----------------------------------------
   void goFeed(String sval) {
         int ival = sval.toInt();
@@ -37,7 +42,6 @@ std::unique_ptr<ESP8266WebServer> server;
           strcpy(msg, "Servo has been moved to : ");
           strcat(msg, sval.c_str());
           server->send(200, "text/plain", msg);
-          Serial.println(sval);
   }
   void goFeedSlow(String sval) {
         int ival = sval.toInt();
@@ -53,14 +57,13 @@ std::unique_ptr<ESP8266WebServer> server;
                  delay(5);
                  }
                  delay(200); // for fill the bank))
-                 //servo.write(0);   // replaced by for for noise reduce
-                 //delay(500);
+                 //servo.write(0); delay(500);  // replaced by for for noise reduce
         }
           char msg[100];
           strcpy(msg, "Performed cycles : ");
           strcat(msg, sval.c_str());
           server->send(200, "text/plain", msg);
-          Serial.println(sval);
+          Serial.println("Eat and be quiet.");
   }
   void goblink(int i){ 
     if ((i%10) == 0){ 
@@ -75,9 +78,44 @@ std::unique_ptr<ESP8266WebServer> server;
          digitalWrite(pin, HIGH);
     }
   }
-  void checkRepo(int interval){
-    
-  }
+  void checkRepo(){
+    // Use WiFiClient class to create TCP connections
+      WiFiClient client;
+  if (!client.connect(HOST, HTTPPORT)) { Serial.println("connection to remote server failed"); return; }
+  // We now create a URI for the request
+  URL += getID(WiFi.macAddress());
+  Serial.print("Requesting URL: ");
+  Serial.println(URL);
+  
+  // This will send the request to the server
+  client.print(String("GET ") + URL + " HTTP/1.1\r\n" +
+               "Host: " + HOST + "\r\n" + 
+               "Connection: close\r\n\r\n");
+  unsigned long timeout = millis();
+  while (client.available() == 0) {
+    if (millis() - timeout > 5000) {
+      Serial.println(">>> Client Timeout !");
+      client.stop();
+      return;
+    }
+  } 
+  // Read all the lines of the reply from server and print them to Serial
+  while(client.available()){
+    String line = client.readStringUntil('\r');
+    Serial.print(line);
+   }
+ }
+String getID(String str){
+  int j=0;
+  String dev_id;
+  for(int i=0; i <17; i++){
+      if(str[i]!=':'){
+          dev_id += str[i];
+          j++;
+         }
+      }
+      return dev_id;
+}
 //------------- end main functions----------------------------------------  
 void setup() {
   pinMode(LED_PIN, OUTPUT);
@@ -86,9 +124,9 @@ void setup() {
   int start_time = millis(); // remember starttime
   servo.attach(MOTOR_PIN);
   servo.write(0); //ставим вал под 0
-  // put your setup code here, to run once:
   
-
+  timer.setInterval(20000, checkRepo);
+  
   Serial.begin(115200);
   Serial.print("\n Starting at :");
   Serial.println(start_time);
@@ -118,7 +156,7 @@ void setup() {
     Serial.println("Starting http server...");
     server.reset(new ESP8266WebServer(WiFi.localIP(), 80));
         server->on("/whoami", [](){ 
-          server->send(200, "text/plain", "{\"device_name\" : \"PetFeeder\", \"version\" : \"1.0\"}"); 
+          server->send(200, "application/json", "{\"device_name\" : \"PetFeeder\", \"version\" : \"1.0\"}"); 
         });
         server->on("/servo", [](){ 
           goFeed(server->arg("val")); 
@@ -127,12 +165,10 @@ void setup() {
           goFeedSlow(server->arg("val")); 
         });
         server->begin();
-    Serial.println("Custom HTTP server started");
-    doblink(LED_PIN, 1, 5000);
-    
+        Serial.println("Custom HTTP server started");
+        doblink(LED_PIN, 1, 5000);
   }
 }
-
 
 void loop() {
   // is configuration portal requested?
@@ -162,5 +198,6 @@ void loop() {
   // put your main code here, to run repeatedly:
     if (WiFi.status()==WL_CONNECTED){
   server->handleClient();
+  timer.run();
     }
 }
