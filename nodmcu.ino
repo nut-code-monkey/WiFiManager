@@ -5,6 +5,7 @@
 #include <WiFiManager.h>
 #include <Servo.h>
 #include <SimpleTimer.h>
+#include <ESP8266HTTPClient.h>
 
 Servo servo;
 /*
@@ -14,14 +15,13 @@ Servo servo;
  * Flash button is convenient to use but if it is pressed it will stuff up the serial port device driver 
  * until the computer is rebooted on windows machines.
  */
+const char* DEV_VERSION = "1.0";
+const int REPOSITORY_INTERVAL = 120000; //Repository interval check, milisecond
+const char* HOST = "http://345.kiev.ua/1.php"; //Repository  full adress for remote job
+
 const int TRIGGER_PIN = D3; // D3 on NodeMCU and WeMos.
 const int LED_PIN = D7; //Diod pin
 const int MOTOR_PIN = D5; //Motor pin
-
-const int REPOSITORY_INTERVAL = 20000; //Repository interval check, milisecond
-const int HTTPPORT = 80;
-const char* HOST = "345.kiev.ua"; //Repository adress for remote job
-String URL = "/1.php?id="; //url for check state, where id is devise MAC /without ":"
 
 /*
  * Alternative trigger pin. Needs to be connected to a button to use this pin. It must be a momentary connection
@@ -79,31 +79,13 @@ SimpleTimer timer;
     }
   }
   void checkRepository(){
-    // Use WiFiClient class to create TCP connections
-      WiFiClient client;
-  if (!client.connect(HOST, HTTPPORT)) { Serial.println("connection to remote server failed"); return; }
-  // We now create a URI for the request
-  String append_url = getID(WiFi.macAddress());
-  Serial.print("Requesting URL: ");
-  Serial.println(URL + append_url);
-  
-  // This will send the request to the server
-  client.print(String("GET ") + URL + append_url + " HTTP/1.1\r\n" +
-               "Host: " + HOST + "\r\n" + 
-               "Connection: close\r\n\r\n");
-  unsigned long timeout = millis();
-  while (client.available() == 0) {
-    if (millis() - timeout > 5000) {
-      Serial.println(">>> Client Timeout !");
-      client.stop();
-      return;
-    }
-  } 
-  // Read all the lines of the reply from server and print them to Serial
-  while(client.available()){
-    String line = client.readStringUntil('\r');
-    CheckRemoteFeedback(line);
-   }
+          HTTPClient http;
+          http.begin(HOST);
+          http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+          http.POST("id=" + getID(WiFi.macAddress()) + "&version=" + DEV_VERSION);
+          String response = http.getString();
+          http.end();
+          CheckRemoteFeedback(response);  
  }
  void CheckRemoteFeedback(String json){
      StaticJsonBuffer<200> jsonBuffer;
@@ -113,9 +95,10 @@ SimpleTimer timer;
          return;
          }
          //check server answer here. We are here only if json has been parsed successfuly
-         String did = jobj["devise_id"];
-         Serial.print("Server ansewer: "); 
-         Serial.println(did); 
+         String remote_job = jobj["remote_job"];
+         if(remote_job[0] != '\0'){
+          goFeedSlow(remote_job);
+         } 
  }
  String getID(String str){
   int j=0;
@@ -132,7 +115,7 @@ void setup() {
   digitalWrite(LED_PIN, HIGH); //turn off led  
   int start_time = millis(); // remember starttime
   servo.attach(MOTOR_PIN);
-  servo.write(0); //ставим вал под 0
+  servo.write(0); //������ ��� ��� 0
   
   timer.setInterval(REPOSITORY_INTERVAL, checkRepository);
   
