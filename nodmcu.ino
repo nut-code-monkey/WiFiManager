@@ -15,7 +15,7 @@ Servo servo;
  * Flash button is convenient to use but if it is pressed it will stuff up the serial port device driver 
  * until the computer is rebooted on windows machines.
  */
-const char* DEV_VERSION = "1.0";
+String DEV_VERSION = "1.0";
 const int REPOSITORY_INTERVAL = 120000; //Repository interval check, milisecond
 const char* HOST = "http://345.kiev.ua/1.php"; //Repository  full adress for remote job
 
@@ -96,6 +96,7 @@ SimpleTimer timer;
          }
          //check server answer here. We are here only if json has been parsed successfuly
          String remote_job = jobj["remote_job"];
+         String devise_id = jobj["devise_id"];
          if(remote_job[0] != '\0'){
           goFeedSlow(remote_job);
          } 
@@ -115,7 +116,7 @@ void setup() {
   digitalWrite(LED_PIN, HIGH); //turn off led  
   int start_time = millis(); // remember starttime
   servo.attach(MOTOR_PIN);
-  servo.write(0); //������ ��� ��� 0
+  servo.write(0); // initial position
   
   timer.setInterval(REPOSITORY_INTERVAL, checkRepository);
   
@@ -148,7 +149,7 @@ void setup() {
     Serial.println("Starting http server...");
     server.reset(new ESP8266WebServer(WiFi.localIP(), 80));
         server->on("/whoami", [](){ 
-          server->send(200, "application/json", "{\"device_name\" : \"PetFeeder\", \"version\" : \"1.0\"}"); 
+          server->send(200, "application/json", "{\"device_name\" : \"PetFeed\", \"version\" : " + DEV_VERSION + "}"); 
         });
         server->on("/servo", [](){ 
           goFeed(server->arg("val")); 
@@ -172,7 +173,7 @@ void loop() {
     WiFiManager wifiManager;
 
     //it starts an access point and goes into a blocking loop awaiting configuration
-    if (!wifiManager.startConfigPortal("GOFeeder")) {
+    if (!wifiManager.startConfigPortal("PetFeed")) {
       Serial.println("Not connected to WiFi but continuing anyway.");
     } else {
       //if you get here you have connected to the WiFi
