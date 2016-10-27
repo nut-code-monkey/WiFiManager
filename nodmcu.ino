@@ -7,6 +7,10 @@
 #include <SimpleTimer.h>
 #include <ESP8266HTTPClient.h>
 
+extern "C" {
+  #include "user_interface.h"
+}
+
 Servo servo;
 /*
  *const int PIN_LED = 2; // D4 on NodeMCU and WeMos. Controls the onboard LED.
@@ -16,6 +20,8 @@ Servo servo;
  * until the computer is rebooted on windows machines.
  */
 String DEV_VERSION = "1.0";
+const int POWERCHECK_INTERVAL = 10000; // Check battery volage
+float VOLTAGE_THRESHOLD = 2710; // voltage threshold , mv
 const int REPOSITORY_INTERVAL = 120000; //Repository interval check, milisecond
 const char* HOST = "http://345.kiev.ua/1.php"; //Repository  full adress for remote job
 
@@ -30,9 +36,10 @@ const int MOTOR_PIN = D5; //Motor pin
 */
 
 bool initialConfig = false; // Indicates whether ESP has WiFi credentials saved from previous session
-
+ADC_MODE(ADC_VCC); //for voltage measuring
 std::unique_ptr<ESP8266WebServer> server;
-SimpleTimer timer;
+SimpleTimer timer_remote;
+SimpleTimer timer_vcc;
 
 //-------------main functions----------------------------------------
   void goFeed(String sval) {
@@ -109,6 +116,12 @@ SimpleTimer timer;
       }
       return dev_id;
 }
+void batteryCheck(){
+  float vdd = ESP.getVcc();
+  if( vdd < VOLTAGE_THRESHOLD ){
+   Serial.print("Curent voltage: "); Serial.println(String(vdd));   
+  }
+}
 //------------- end main functions----------------------------------------  
 void setup() {
   pinMode(LED_PIN, OUTPUT);
@@ -118,7 +131,8 @@ void setup() {
   servo.attach(MOTOR_PIN);
   servo.write(0); // initial position
   
-  timer.setInterval(REPOSITORY_INTERVAL, checkRepository);
+  timer_remote.setInterval(REPOSITORY_INTERVAL, checkRepository);
+  timer_vcc.setInterval(POWERCHECK_INTERVAL, batteryCheck);
   
   Serial.begin(115200);
   Serial.print("\n Starting at :");
@@ -157,6 +171,10 @@ void setup() {
         server->on("/servoslow", [](){
           goFeedSlow(server->arg("val")); 
         });
+         server->on("/vcc", [](){
+          float vdd = ESP.getVcc();
+          server->send(200, "text/plain", String(vdd));
+        });
         server->begin();
         Serial.println("Custom HTTP server started");
         doblink(LED_PIN, 1, 5000);
@@ -187,6 +205,7 @@ void loop() {
   // put your main code here, to run repeatedly:
     if (WiFi.status()==WL_CONNECTED){
   server->handleClient();
-  timer.run();
+  timer_remote.run();
+  timer_vcc.run();
     }
 }
