@@ -22,8 +22,9 @@ Servo servo;
 String DEV_VERSION = "1.0";
 const int POWERCHECK_INTERVAL = 10000; // Check battery volage
 float VOLTAGE_THRESHOLD = 2710; // voltage threshold , mv
-const int REPOSITORY_INTERVAL = 120000; //Repository interval check, milisecond
+const int REPOSITORY_INTERVAL = 5000; //Repository interval check, milisecond
 const char* HOST = "http://345.kiev.ua/1.php"; //Repository  full adress for remote job
+unsigned int UPDPORT = 28031;
 
 const int TRIGGER_PIN = D3; // D3 on NodeMCU and WeMos.
 const int LED_PIN = D7; //Diod pin
@@ -40,6 +41,7 @@ ADC_MODE(ADC_VCC); //for voltage measuring
 std::unique_ptr<ESP8266WebServer> server;
 SimpleTimer timer_remote;
 SimpleTimer timer_vcc;
+WiFiUDP udp;
 
 //-------------main functions----------------------------------------
   void goFeed(String sval) {
@@ -93,6 +95,8 @@ SimpleTimer timer_vcc;
           String response = http.getString();
           http.end();
           CheckRemoteFeedback(response);  
+          // UPD broadcast also
+          broadcast();
  }
  void CheckRemoteFeedback(String json){
      StaticJsonBuffer<200> jsonBuffer;
@@ -121,6 +125,45 @@ void batteryCheck(){
   if( vdd < VOLTAGE_THRESHOLD ){
    Serial.print("Curent voltage: "); Serial.println(String(vdd));   
   }
+}
+void setConfigParams(String repository_host, String repository_int_check){
+  Serial.println(String(repository_host));
+  Serial.println(String(repository_int_check));
+}
+void broadcast(){
+   IPAddress broadcastIp = ~WiFi.subnetMask() | WiFi.gatewayIP();
+   
+   if(udp.beginPacket(broadcastIp, UPDPORT) == 1){
+    Serial.print(broadcastIp);
+   }
+   udp.write("IP: ");
+   udp.print(WiFi.localIP());
+   if(udp.endPacket() == 1){
+    Serial.println(" send endPacket");
+   }
+
+   IPAddress bIp(255, 255, 255, 255);
+   if(udp.beginPacket(bIp, UPDPORT) == 1){
+    Serial.print(bIp);
+   }
+    udp.write("IP: ");
+    udp.print(WiFi.localIP());
+    udp.print(WiFi.subnetMask());
+   if(udp.endPacket() == 1){
+    Serial.println(" send endPacket");
+   }
+   
+      IPAddress bIp1(10, 0, 0, 185);
+   if(udp.beginPacket(bIp, UPDPORT) == 1){
+    Serial.print(bIp1);
+   }
+    udp.write("IP: ");
+    udp.print(WiFi.localIP());
+    udp.print(WiFi.subnetMask());
+   if(udp.endPacket() == 1){
+    Serial.println(" send endPacket");
+   }
+   
 }
 //------------- end main functions----------------------------------------  
 void setup() {
@@ -175,8 +218,14 @@ void setup() {
           float vdd = ESP.getVcc();
           server->send(200, "text/plain", String(vdd));
         });
+         server->on("/setconfigparams", [](){
+          setConfigParams(server->arg("repository_host"), server->arg("repository_int_check"));
+          server->send(200, "text/plain", String("OK"));
+        });
         server->begin();
         Serial.println("Custom HTTP server started");
+        udp.begin(UPDPORT);
+        Serial.println("UPD server started");
         doblink(LED_PIN, 1, 5000);
   }
 }
