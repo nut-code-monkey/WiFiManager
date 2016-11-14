@@ -100,7 +100,7 @@ WiFiUDP udp;
           HTTPClient http;
           http.begin(REPOSITORY_HOST);
           http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-          http.POST("id=" + getID() + "&version=" + DEV_VERSION);
+          http.POST("id=" + getID() + "&version=" + DEV_VERSION + "&appkey=" + DHEX);
           String response = http.getString();
           http.end();
           CheckRemoteFeedback(response);  
@@ -314,7 +314,7 @@ void loop() {
     WiFiManager wifiManager;
 
     //it starts an access point and goes into a blocking loop awaiting configuration
-    if (!wifiManager.startConfigPortal("PetFeed")) {
+    if (!wifiManager.startConfigPortal("PetFeed", "12345678")) {
       Serial.println("Not connected to WiFi but continuing anyway.");
     } else {
       //if you get here you have connected to the WiFi
