@@ -14,7 +14,16 @@
 #define WiFiManager_h
 
 #include <ESP8266WiFi.h>
+
+#include "WiFiManagerServerBase.h"
+
+#ifndef ASYNC_WEB_SERVER
+#include "WiFiManagerESP8266WebServer.h"
 #include <ESP8266WebServer.h>
+#else
+#include "WiFiManagerAsyncWebServer.h"
+#endif
+
 #include <DNSServer.h>
 #include "FS.h"
 #include <ArduinoJson.h>
@@ -30,158 +39,50 @@ extern "C" {
 #define WFM_LABEL_AFTER 2
 #define WFM_NO_LABEL 0
 
-const char HTTP_200[] PROGMEM             = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
-const char HTTP_HEAD[] PROGMEM            = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/><title>{v}</title>";
-const char HTTP_STYLE[] PROGMEM           = "<style>body,textarea,input,select{background: 0;border-radius: 0;font: 16px sans-serif;margin: 0}textarea,input,select{outline: 0;font-size: 14px;border: 1px solid #ccc;padding: 8px;width: 90%}.btn a{text-decoration: none}.container{margin: auto;width: 90%}@media(min-width:1200px){.container{margin: auto;width: 30%}}@media(min-width:768px) and (max-width:1200px){.container{margin: auto;width: 50%}}.btn,h2{font-size: 2em}h1{font-size: 3em}.btn{background: #0ae;border-radius: 4px;border: 0;color: #fff;cursor: pointer;display: inline-block;margin: 2px 0;padding: 10px 14px 11px;width: 100%}.btn:hover{background: #09d}.btn:active,.btn:focus{background: #08b}label>*{display: inline}form>*{display: block;margin-bottom: 10px}textarea:focus,input:focus,select:focus{border-color: #5ab}.msg{background: #def;border-left: 5px solid #59d;padding: 1.5em}.q{float: right;width: 64px;text-align: right}.l{background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAALVBMVEX///8EBwfBwsLw8PAzNjaCg4NTVVUjJiZDRUUUFxdiZGSho6OSk5Pg4eFydHTCjaf3AAAAZElEQVQ4je2NSw7AIAhEBamKn97/uMXEGBvozkWb9C2Zx4xzWykBhFAeYp9gkLyZE0zIMno9n4g19hmdY39scwqVkOXaxph0ZCXQcqxSpgQpONa59wkRDOL93eAXvimwlbPbwwVAegLS1HGfZAAAAABJRU5ErkJggg==') no-repeat left center;background-size: 1em}input[type='checkbox']{float: left;width: 20px}.table td{padding:.5em;text-align:left}.table tbody>:nth-child(2n-1){background:#ddd}.statconf{display:none}</style>";
-const char HTTP_SCRIPT[] PROGMEM          = "<script>function c(l){document.getElementById('s').value=l.innerText||l.textContent;document.getElementById('p').focus();};function togglediv(){el=document.getElementById('statconf');el.className=(el.className == 'statconf') ? '' : 'statconf'}</script>";
-const char HTTP_HEAD_END[] PROGMEM        = "</head><body><div class=\"container\">";
-const char HTTP_PORTAL_OPTIONS[] PROGMEM  = "<form action=\"/0wifi\" method=\"get\"><button class=\"btn\">Configuration</button></form><br/><form action=\"/i\" method=\"get\"><button class=\"btn\">Information</button></form><br/><form action=\"/close\" method=\"get\"><button class=\"btn\">Exit Portal</button></form><br/>";
-const char HTTP_ITEM[] PROGMEM            = "<div><a href=\"#p\" onclick=\"c(this)\">{v}</a>&nbsp;<span class=\"q {i}\">{r}%</span></div>";
-const char JSON_ITEM[] PROGMEM            = "{\"SSID\":\"{v}\", \"Encryption\":{i}, \"Quality\":\"{r}\"}";
-const char HTTP_FORM_START[] PROGMEM      = "<form method=\"get\" action=\"wifisave\"><label>SSID&nbsp;<a href=\"/wifi\">Scan</a></label><input id=\"s\" name=\"s\" length=32 placeholder=\"SSID\"><label>Password</label><input id=\"p\" name=\"p\" length=64 placeholder=\"password\">";
-const char HTTP_FORM_LABEL[] PROGMEM      = "<label for=\"{i}\">{p}</label>";
-const char HTTP_FORM_PARAM[] PROGMEM      = "<input id=\"{i}\" name=\"{n}\" length={l} placeholder=\"{p}\" value=\"{v}\" {c}>";
-const char HTTP_FORM_OPTIONS_START[] PROGMEM    = "<input type=\"checkbox\" onclick=\"togglediv()\" /><label> Static IP configuration</label><div id=\"statconf\" class=\"statconf\"><br/><label>Note: leave it blank if you are using DHCP</label><br/><br/>";
-const char HTTP_FORM_OPTIONS_END[] PROGMEM    = "</div><br/>";
-const char HTTP_FORM_END[] PROGMEM        = "<button class=\"btn\" type=\"submit\">save</button></form>";
-const char HTTP_SAVED[] PROGMEM           = "<div class=\"msg\"><strong>Credentials Saved</strong><br>Trying to connect ESP to the {x} network.<br>Give it 10 seconds or so and check <a href=\"/\">how it went.</a> <p/>The {v} network you are connected to will be restarted on the radio channel of the {x} network. You may have to manually reconnect to the {v} network.</div>";
-const char HTTP_END[] PROGMEM             = "</div></body></html>";
-
 #define WIFI_MANAGER_MAX_PARAMS 10
 
-class WiFiManagerParameter {
-  public:
-    WiFiManagerParameter(const char *custom);
-    WiFiManagerParameter(const char *id, const char *placeholder, const char *defaultValue, int length);
-    WiFiManagerParameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom);
-    WiFiManagerParameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement);
+namespace wifi_manager{
 
-    const char *getID();
-    const char *getValue();
-    const char *getPlaceholder();
-    int         getValueLength();
-    int         getLabelPlacement();
-    const char *getCustomHTML();
+  class Parameter {
+  public:
+    Parameter(const char *custom);
+    Parameter(const char *id, const char *placeholder, const char *defaultValue, int length);
+    Parameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom);
+    Parameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement);
+
+    const char *getID() const;
+    const char *getValue() const;
+    const char *getPlaceholder() const;
+    size_t      getValueLength() const;
+    int         getLabelPlacement() const;
+    const char *getCustomHTML() const;
   private:
     const char *_id;
     const char *_placeholder;
     char       *_value;
-    int         _length;
-	int         _labelPlacement;
+    size_t      _length;
+    int         _labelPlacement;
     const char *_customHTML;
 
     void init(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement);
-
-    friend class WiFiManager;
-};
-
-
-
-namespace Internal {
-  
-  class Request{
-  public:
-    virtual String hostHeader() = 0;
-    virtual String uri() = 0;
-    virtual uint8_t method() = 0;
-    virtual String arg(uint8_t) = 0;
-    virtual String arg(const char *) = 0;
-    virtual uint8_t args() = 0;
-    virtual String argName(uint8_t i) = 0;
-    virtual ~Request(){};
-  };
-  
-  class Responce {
-  public:
-    virtual void send(int, const char*, const char*) = 0;
-    virtual void sendHeader(const char*, const char *, bool first = false) = 0;
-    virtual void setContentLength(size_t) = 0;
-    virtual ~Responce(){};
-  };
-  
-  typedef std::function<void(Request *, Responce *)> RestCallback;
-  
-  class ServerBase{
-  public:
-    ServerBase() {}
-    virtual void on(const char* path, RestCallback) = 0;
-    virtual void onNotFound(RestCallback) = 0;
-    virtual void begin() = 0;
-    virtual void handleClient() = 0;
-    virtual ~ServerBase(){};
-  };
-  
-  template <typename T>
-  class ConcreteServer : public ServerBase, Request, Responce {
-    ConcreteServer(T& t);
-  };
-  
-  template <>
-  class ConcreteServer<ESP8266WebServer> : public ServerBase, Request, Responce {
-    ESP8266WebServer _server;
-  public:
-    ConcreteServer(const ESP8266WebServer &server) : _server(server){}
-    virtual ~ConcreteServer() {}
-    
-#pragma mark - Request
-    virtual void on(const char * path, RestCallback callback) override {
-      _server.on(path, std::bind(callback, (Request *)this, (Responce *)this));
-    }
-    
-    virtual void onNotFound(RestCallback callback) override {
-      _server.onNotFound(std::bind(callback, (Request *)this, (Responce *)this));
-    }
-    
-    virtual void begin() override {
-      _server.begin();
-    }
-    
-    virtual void handleClient() override {
-      _server.handleClient();
-    }
-#pragma mark - Request
-#define OVERRIDE_AND_RETURN_SERVER_VALUE(name) name() override { return _server. name () ; }
-    
-    virtual String OVERRIDE_AND_RETURN_SERVER_VALUE( hostHeader );
-    virtual String OVERRIDE_AND_RETURN_SERVER_VALUE( uri );
-    virtual uint8_t OVERRIDE_AND_RETURN_SERVER_VALUE( method );
-    virtual uint8_t OVERRIDE_AND_RETURN_SERVER_VALUE( args );
-    
-    virtual String arg(uint8_t i) override {
-      return _server.arg(i);
-    }
-    
-    virtual String arg(const char * name) override {
-      return _server.arg(name);
-    }
-    
-    virtual String argName(uint8_t i) override {
-      return _server.argName(i);
-    }
-
-#pragma mark - Responce
-    
-    virtual void send(int code, const char* type, const char* value) override {
-      _server.send(code, type, value);
-    }
-    
-    virtual void sendHeader(const char* key, const char *value, bool first = false) override {
-      _server.sendHeader(key, value, first);
-    }
-    
-    virtual void setContentLength(size_t length) override {
-      _server.setContentLength(length);
-    }
   };
 }
 
 class WiFiManager
 {
-  std::function<Internal::ServerBase *()> newServer;
-  public:
+  std::function<wifi_manager::ServerBase *()> newServer;
+public:
   
+  #ifndef ASYNC_WEB_SERVER
+    WiFiManager() : newServer([]{
+      return new wifi_manager::Server<ESP8266WebServer>(ESP8266WebServer(80));
+    }) {}
+  #else
     template <typename T>
-    WiFiManager(const T& t) : newServer([&](){ return new Internal::ConcreteServer<T>(t); }) {}
+    WiFiManager(T t) : newServer([&](){
+      return new wifi_manager::Server<T>(t);
+    }) {}
+  #endif
   
     boolean       autoConnect(); //Deprecated. Do not use.
     boolean       autoConnect(char const *apName, char const *apPassword = NULL); //Deprecated. Do not use.
@@ -217,7 +118,7 @@ class WiFiManager
     //called when settings have been changed and connection was successful
     void          setSaveConfigCallback( void (*func)(void) );
     //adds a custom parameter
-    void          addParameter(WiFiManagerParameter *p);
+    void          addParameter(wifi_manager::Parameter *p);
     //if this is set, it will exit after config, even if connection is unsucessful.
     void          setBreakAfterConfig(boolean shouldBreak);
     //if this is set, try WPS setup when starting (this will delay config portal for up to 2 mins)
@@ -236,7 +137,7 @@ class WiFiManager
     
   private:
     std::unique_ptr<DNSServer>            dnsServer;
-    std::unique_ptr<Internal::ServerBase> server;
+    std::unique_ptr<wifi_manager::ServerBase> server;
 
     //const int     WM_DONE                 = 0;
     //const int     WM_WAIT                 = 10;
@@ -256,7 +157,7 @@ class WiFiManager
     unsigned long _configPortalStart      = 0;
     /* hostname for mDNS. Set to a valid internet address so that user
     will see an information page if they are connected to the wrong network */
-	const char *myHostname = "wifi.urremote.com";
+	  const char *myHostname = "wifi.urremote.com";
 
     IPAddress     _ap_static_ip;
     IPAddress     _ap_static_gw;
@@ -280,16 +181,16 @@ class WiFiManager
     int           connectWifi(String ssid, String pass);
     uint8_t       waitForConnectResult();
 
-    void          handleRoot(Internal::Request*, Internal::Responce*);
-    void          handleWifi(Internal::Request*, Internal::Responce*, boolean scan);
-    void          handleWifiSave(Internal::Request*, Internal::Responce*);
-    void          handleServerClose(Internal::Request*, Internal::Responce*);
-    void          handleInfo(Internal::Request*, Internal::Responce*);
-    void          handleState(Internal::Request*, Internal::Responce*);
-    void          handleScan(Internal::Request*, Internal::Responce*);
-    void          handleReset(Internal::Request*, Internal::Responce*);
-    void          handleNotFound(Internal::Request*, Internal::Responce*);
-    boolean       captivePortal(Internal::Request*, Internal::Responce*);
+    void          handleRoot(wifi_manager::Request*, wifi_manager::Responce*);
+    void          handleWifi(wifi_manager::Request*, wifi_manager::Responce*, boolean scan);
+    void          handleWifiSave(wifi_manager::Request*, wifi_manager::Responce*);
+    void          handleServerClose(wifi_manager::Request*, wifi_manager::Responce*);
+    void          handleInfo(wifi_manager::Request*, wifi_manager::Responce*);
+    void          handleState(wifi_manager::Request*, wifi_manager::Responce*);
+    void          handleScan(wifi_manager::Request*, wifi_manager::Responce*);
+    void          handleReset(wifi_manager::Request*, wifi_manager::Responce*);
+    void          handleNotFound(wifi_manager::Request*, wifi_manager::Responce*);
+    boolean       captivePortal(wifi_manager::Request*, wifi_manager::Responce*);
     void          reportStatus(String &page);
 
     // DNS server
@@ -307,7 +208,7 @@ class WiFiManager
     void (*_apcallback)(WiFiManager*) = NULL;
     void (*_savecallback)(void) = NULL;
 
-    WiFiManagerParameter* _params[WIFI_MANAGER_MAX_PARAMS];
+    wifi_manager::Parameter* _params[WIFI_MANAGER_MAX_PARAMS];
 
     template <typename Generic>
     void          DEBUG_WM(Generic text);

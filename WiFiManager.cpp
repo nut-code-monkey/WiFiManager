@@ -14,72 +14,91 @@
 #include "WiFiManager.h"
 #include <functional>
 
-using namespace Internal;
-
 extern "C" {
-  #include "user_interface.h"
+#include "user_interface.h"
+}
+
+namespace wifi_manager {
+  
+  namespace HTML{
+    const char HTML_200[] PROGMEM             = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
+    const char HEAD_BEGIN[] PROGMEM      = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/><title>{v}</title>";
+    const char STYLE[] PROGMEM           = "<style>body,textarea,input,select{background: 0;border-radius: 0;font: 16px sans-serif;margin: 0}textarea,input,select{outline: 0;font-size: 14px;border: 1px solid #ccc;padding: 8px;width: 90%}.btn a{text-decoration: none}.container{margin: auto;width: 90%}@media(min-width:1200px){.container{margin: auto;width: 30%}}@media(min-width:768px) and (max-width:1200px){.container{margin: auto;width: 50%}}.btn,h2{font-size: 2em}h1{font-size: 3em}.btn{background: #0ae;border-radius: 4px;border: 0;color: #fff;cursor: pointer;display: inline-block;margin: 2px 0;padding: 10px 14px 11px;width: 100%}.btn:hover{background: #09d}.btn:active,.btn:focus{background: #08b}label>*{display: inline}form>*{display: block;margin-bottom: 10px}textarea:focus,input:focus,select:focus{border-color: #5ab}.msg{background: #def;border-left: 5px solid #59d;padding: 1.5em}.q{float: right;width: 64px;text-align: right}.l{background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAALVBMVEX///8EBwfBwsLw8PAzNjaCg4NTVVUjJiZDRUUUFxdiZGSho6OSk5Pg4eFydHTCjaf3AAAAZElEQVQ4je2NSw7AIAhEBamKn97/uMXEGBvozkWb9C2Zx4xzWykBhFAeYp9gkLyZE0zIMno9n4g19hmdY39scwqVkOXaxph0ZCXQcqxSpgQpONa59wkRDOL93eAXvimwlbPbwwVAegLS1HGfZAAAAABJRU5ErkJggg==') no-repeat left center;background-size: 1em}input[type='checkbox']{float: left;width: 20px}.table td{padding:.5em;text-align:left}.table tbody>:nth-child(2n-1){background:#ddd}.statconf{display:none}</style>";
+    const char SCRIPT[] PROGMEM          = "<script>function c(l){document.getElementById('s').value=l.innerText||l.textContent;document.getElementById('p').focus();};function togglediv(){el=document.getElementById('statconf');el.className=(el.className == 'statconf') ? '' : 'statconf'}</script>";
+    const char HEAD_END[] PROGMEM        = "</head><body><div class=\"container\">";
+    const char PORTAL_OPTIONS[] PROGMEM  = "<form action=\"/0wifi\" method=\"get\"><button class=\"btn\">Configuration</button></form><br/><form action=\"/i\" method=\"get\"><button class=\"btn\">Information</button></form><br/><form action=\"/close\" method=\"get\"><button class=\"btn\">Exit Portal</button></form><br/>";
+    const char ITEM[] PROGMEM            = "<div><a href=\"#p\" onclick=\"c(this)\">{v}</a>&nbsp;<span class=\"q {i}\">{r}%</span></div>";
+    const char JSON_ITEM[] PROGMEM            = "{\"SSID\":\"{v}\", \"Encryption\":{i}, \"Quality\":\"{r}\"}";
+    const char FORM_START[] PROGMEM      = "<form method=\"get\" action=\"wifisave\"><label>SSID&nbsp;<a href=\"/wifi\">Scan</a></label><input id=\"s\" name=\"s\" length=32 placeholder=\"SSID\"><label>Password</label><input id=\"p\" name=\"p\" length=64 placeholder=\"password\">";
+    const char FORM_LABEL[] PROGMEM      = "<label for=\"{i}\">{p}</label>";
+    const char FORM_PARAM[] PROGMEM      = "<input id=\"{i}\" name=\"{n}\" length={l} placeholder=\"{p}\" value=\"{v}\" {c}>";
+    const char FORM_OPTIONS_START[] PROGMEM    = "<input type=\"checkbox\" onclick=\"togglediv()\" /><label> Static IP configuration</label><div id=\"statconf\" class=\"statconf\"><br/><label>Note: leave it blank if you are using DHCP</label><br/><br/>";
+    const char FORM_OPTIONS_END[] PROGMEM    = "</div><br/>";
+    const char FORM_END[] PROGMEM        = "<button class=\"btn\" type=\"submit\">save</button></form>";
+    const char SAVED[] PROGMEM           = "<div class=\"msg\"><strong>Credentials Saved</strong><br>Trying to connect ESP to the {x} network.<br>Give it 10 seconds or so and check <a href=\"/\">how it went.</a> <p/>The {v} network you are connected to will be restarted on the radio channel of the {x} network. You may have to manually reconnect to the {v} network.</div>";
+    const char END[] PROGMEM             = "</div></body></html>";
+  }
+  
+  Parameter::Parameter(const char *custom) {
+    _id = NULL;
+    _placeholder = NULL;
+    _length = 0;
+    _value = NULL;
+    _labelPlacement = WFM_LABEL_BEFORE;
+    
+    _customHTML = custom;
+  }
+  
+  Parameter::Parameter(const char *id, const char *placeholder, const char *defaultValue, int length) {
+    init(id, placeholder, defaultValue, length, "", WFM_LABEL_BEFORE);
+  }
+  
+  Parameter::Parameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom) {
+    init(id, placeholder, defaultValue, length, custom, WFM_LABEL_BEFORE);
+  }
+  
+  Parameter::Parameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement) {
+    init(id, placeholder, defaultValue, length, custom, labelPlacement);
+  }
+  
+  void Parameter::init(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement) {
+    _id = id;
+    _placeholder = placeholder;
+    _length = length;
+    _labelPlacement = labelPlacement;
+    _value = new char[length + 1];
+    for (size_t i = 0; i < length; i++) {
+      _value[i] = 0;
+    }
+    if (defaultValue != NULL) {
+      strncpy(_value, defaultValue, length);
+    }
+    
+    _customHTML = custom;
+  }
+  
+  const char* Parameter::getValue() const {
+    return _value;
+  }
+  const char* Parameter::getID() const {
+    return _id;
+  }
+  const char* Parameter::getPlaceholder() const {
+    return _placeholder;
+  }
+  int Parameter::getValueLength() const {
+    return _length;
+  }
+  int Parameter::getLabelPlacement() const {
+    return _labelPlacement;
+  }
+  const char* Parameter::getCustomHTML() const {
+    return _customHTML;
+  }
 }
 
 boolean setStatic = false;
-
-WiFiManagerParameter::WiFiManagerParameter(const char *custom) {
-  _id = NULL;
-  _placeholder = NULL;
-  _length = 0;
-  _value = NULL;
-  _labelPlacement = WFM_LABEL_BEFORE;
-
-  _customHTML = custom;
-}
-
-WiFiManagerParameter::WiFiManagerParameter(const char *id, const char *placeholder, const char *defaultValue, int length) {
-  init(id, placeholder, defaultValue, length, "", WFM_LABEL_BEFORE);
-}
-
-WiFiManagerParameter::WiFiManagerParameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom) {
-  init(id, placeholder, defaultValue, length, custom, WFM_LABEL_BEFORE);
-}
-
-WiFiManagerParameter::WiFiManagerParameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement) {
-  init(id, placeholder, defaultValue, length, custom, labelPlacement);
-}
-
-void WiFiManagerParameter::init(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement) {
-  _id = id;
-  _placeholder = placeholder;
-  _length = length;
-  _labelPlacement = labelPlacement;
-  _value = new char[length + 1];
-  for (int i = 0; i < length; i++) {
-    _value[i] = 0;
-  }
-  if (defaultValue != NULL) {
-    strncpy(_value, defaultValue, length);
-  }
-
-  _customHTML = custom;
-}
-
-const char* WiFiManagerParameter::getValue() {
-  return _value;
-}
-const char* WiFiManagerParameter::getID() {
-  return _id;
-}
-const char* WiFiManagerParameter::getPlaceholder() {
-  return _placeholder;
-}
-int WiFiManagerParameter::getValueLength() {
-  return _length;
-}
-int WiFiManagerParameter::getLabelPlacement() {
-  return _labelPlacement;
-}
-const char* WiFiManagerParameter::getCustomHTML() {
-  return _customHTML;
-}
-
-void WiFiManager::addParameter(WiFiManagerParameter *p) {
+void WiFiManager::addParameter(wifi_manager::Parameter *p) {
   _params[_paramsCount] = p;
   _paramsCount++;
   DEBUG_WM("Adding parameter");
@@ -169,19 +188,18 @@ boolean WiFiManager::autoConnect(char const *apName, char const *apPassword) {
   // to see if it succeeds and should it fail, fall back to AP
   WiFi.mode(WIFI_STA);
   unsigned long startedAt = millis();
-    while(millis() - startedAt < 10000)
-    {
-        delay(100);
-        if (WiFi.status()==WL_CONNECTED) {
-			float waited = (millis()- startedAt);
-			DEBUG_WM(F("After waiting "));
-			DEBUG_WM(waited/1000);
-			DEBUG_WM(F(" secs local ip: "));
-			DEBUG_WM(WiFi.localIP());
-            return true;
-		}
+  while(millis() - startedAt < 10000) {
+    delay(100);
+    if (WiFi.status()==WL_CONNECTED) {
+      float waited = (millis()- startedAt);
+      DEBUG_WM(F("After waiting "));
+      DEBUG_WM(waited/1000);
+      DEBUG_WM(F(" secs local ip: "));
+      DEBUG_WM(WiFi.localIP());
+      return true;
     }
-
+  }
+  
   return startConfigPortal(apName, apPassword);
 }
 
@@ -194,10 +212,10 @@ boolean  WiFiManager::startConfigPortal(char const *apName, char const *apPasswo
   //setup AP
   int connRes = WiFi.waitForConnectResult();
   if (connRes == WL_CONNECTED){
-	  WiFi.mode(WIFI_AP_STA); //Dual mode works fine if it is connected to WiFi
-	  DEBUG_WM("SET AP STA");
-  	}
-  	else {
+    WiFi.mode(WIFI_AP_STA); //Dual mode works fine if it is connected to WiFi
+    DEBUG_WM("SET AP STA");
+  }
+  else {
     WiFi.mode(WIFI_AP); // Dual mode becomes flaky if not connected to a WiFi network.
     // When ESP8266 station is trying to find a target AP, it will scan on every channel,
     // that means ESP8266 station is changing its channel to scan. This makes the channel of ESP8266 softAP keep changing too..
@@ -254,18 +272,18 @@ boolean  WiFiManager::startConfigPortal(char const *apName, char const *apPasswo
       }
     }
     if (stopConfigPortal) {
-	  stopConfigPortal = false;
-	  break;
+      stopConfigPortal = false;
+      break;
     }
     yield();
   }
   WiFi.mode(WIFI_STA);
   if (TimedOut & WiFi.status() != WL_CONNECTED) {
-	WiFi.begin();
+    WiFi.begin();
     int connRes = waitForConnectResult();
     DEBUG_WM ("Timed out connection result: ");
     DEBUG_WM ( getStatus(connRes));
-    }
+  }
   server.reset();
   dnsServer.reset();
   return  WiFi.status() == WL_CONNECTED;
@@ -274,21 +292,20 @@ boolean  WiFiManager::startConfigPortal(char const *apName, char const *apPasswo
 int WiFiManager::connectWifi(String ssid, String pass) {
   DEBUG_WM(F("Connecting wifi with new parameters..."));
   if (ssid != "") {
-	resetSettings(); 
-  // check if we've got static_ip settings, if we do, use those.
-  if (setStatic) {
-	    DEBUG_WM(F("Custom STA IP/GW/Subnet"));
-	    WiFi.config(_sta_static_ip, _sta_static_gw, _sta_static_sn); 
-                 }else{
-                 }
-	WiFi.mode(WIFI_AP_STA); //It will start in station mode if it was previously in AP mode.
+    resetSettings();
+      // check if we've got static_ip settings, if we do, use those.
+    if (setStatic) {
+      DEBUG_WM(F("Custom STA IP/GW/Subnet"));
+      WiFi.config(_sta_static_ip, _sta_static_gw, _sta_static_sn);
+    }
+    WiFi.mode(WIFI_AP_STA); //It will start in station mode if it was previously in AP mode.
     WiFi.begin(ssid.c_str(), pass.c_str());// Start Wifi with new values.
-         if (_sta_static_ip && !setStatic) { 
-               DEBUG_WM(F("No Need reset to set new credentials"));
-             (void)wifi_station_dhcpc_start();
-            };
+    if (_sta_static_ip && !setStatic) {
+      DEBUG_WM(F("No Need reset to set new credentials"));
+      (void)wifi_station_dhcpc_start();
+    };
   } else if(!WiFi.SSID()) {
-      DEBUG_WM(F("No saved credentials"));
+    DEBUG_WM(F("No saved credentials"));
   }
 
   int connRes = waitForConnectResult();
@@ -305,12 +322,12 @@ int WiFiManager::connectWifi(String ssid, String pass) {
 
 uint8_t WiFiManager::waitForConnectResult() {
   if (_connectTimeout == 0) {
-	unsigned long startedAt = millis();
-	DEBUG_WM (F("After waiting..."));
-	int connRes = WiFi.waitForConnectResult();
-	float waited = (millis()- startedAt);
-	DEBUG_WM (waited/1000);
-	DEBUG_WM (F("seconds"));
+    unsigned long startedAt = millis();
+    DEBUG_WM (F("After waiting..."));
+    int connRes = WiFi.waitForConnectResult();
+    float waited = (millis()- startedAt);
+    DEBUG_WM (waited/1000);
+    DEBUG_WM (F("seconds"));
     return connRes;
   } else {
     DEBUG_WM (F("Waiting for connection result with time out"));
@@ -339,32 +356,31 @@ void WiFiManager::startWPS() {
 }
 //Convenient for debugging but wasteful of program space.
 //Remove if short of space
-char* WiFiManager::getStatus(int status)
-{
-   switch (status)
-   {
-      case WL_NO_SHIELD: return "WL_NO_SHIELD";
-      case WL_IDLE_STATUS: return "WL_IDLE_STATUS";
-      case WL_NO_SSID_AVAIL: return "WL_NO_SSID_AVAIL";
-      case WL_SCAN_COMPLETED: return "WL_SCAN_COMPLETED";
-      case WL_CONNECTED: return "WL_CONNECTED";
-	  case WL_CONNECT_FAILED: return "WL_CONNECT_FAILED";
-	  case WL_CONNECTION_LOST: return "WL_CONNECTION_LOST";
-      case WL_DISCONNECTED: return "WL_DISCONNECTED";
-      default: return "UNKNOWN";
-   }
+char* WiFiManager::getStatus(int status) {
+  switch (status)
+  {
+    case WL_NO_SHIELD: return "WL_NO_SHIELD";
+    case WL_IDLE_STATUS: return "WL_IDLE_STATUS";
+    case WL_NO_SSID_AVAIL: return "WL_NO_SSID_AVAIL";
+    case WL_SCAN_COMPLETED: return "WL_SCAN_COMPLETED";
+    case WL_CONNECTED: return "WL_CONNECTED";
+    case WL_CONNECT_FAILED: return "WL_CONNECT_FAILED";
+    case WL_CONNECTION_LOST: return "WL_CONNECTION_LOST";
+    case WL_DISCONNECTED: return "WL_DISCONNECTED";
+    default: return "UNKNOWN";
+  }
 }
 
 String WiFiManager::getConfigPortalSSID() {
   return _apName;
 }
 void WiFiManager::removeWFConfig() {
-       SPIFFS.begin();
-       if (SPIFFS.exists("/wificonfig.txt")){
-          if (SPIFFS.remove("/wificonfig.txt")){
-             DEBUG_WM(F("wificonfig has been deleted"));
-            }
-       }
+  SPIFFS.begin();
+  if (SPIFFS.exists("/wificonfig.txt")){
+    if (SPIFFS.remove("/wificonfig.txt")){
+      DEBUG_WM(F("wificonfig has been deleted"));
+    }
+  }
 }
 void WiFiManager::resetSettings() {
   DEBUG_WM(F("previous settings invalidated"));
@@ -410,75 +426,73 @@ void WiFiManager::setBreakAfterConfig(boolean shouldBreak) {
 
 void WiFiManager::reportStatus(String &page){
   if (WiFi.SSID() != ""){
-	  page += F("Configured to connect to access point ");
-	  page += WiFi.SSID();
-	  if (WiFi.status()==WL_CONNECTED){
-		  page += F(" and <strong>currently connected</strong> on IP <a href=\"http://");
-		  page += WiFi.localIP().toString();
-		  page += F("/\">");
-		  page += WiFi.localIP().toString();
-		  page += F("</a>");
+    page += F("Configured to connect to access point ");
+    page += WiFi.SSID();
+    if (WiFi.status()==WL_CONNECTED){
+      page += F(" and <strong>currently connected</strong> on IP <a href=\"http://");
+      page += WiFi.localIP().toString();
+      page += F("/\">");
+      page += WiFi.localIP().toString();
+      page += F("</a>");
 	   }
-	  else {
-		  page += F(" but <strong>not currently connected</strong> to network.");
-	  }
-    }
     else {
-		page += F("No network currently configured.");
-	}
+      page += F(" but <strong>not currently connected</strong> to network.");
+    }
+  }
+  else {
+    page += F("No network currently configured.");
+  }
 }
 
 /** Handle root or redirect to captive portal */
-void WiFiManager::handleRoot(Request* request, Responce* responce) {
+void WiFiManager::handleRoot(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("Handle root"));
   if (captivePortal(request, responce)) { // If caprive portal redirect instead of displaying the error page.
-      return;
+    return;
   }
   responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   responce->sendHeader("Pragma", "no-cache");
   responce->sendHeader("Expires", "-1");
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "Options");
-  page += FPSTR(HTTP_SCRIPT);
-  page += FPSTR(HTTP_STYLE);
+  page += FPSTR(wifi_manager::HTML::SCRIPT);
+  page += FPSTR(wifi_manager::HTML::STYLE);
   page += _customHeadElement;
-  page += FPSTR(HTTP_HEAD_END);
+  page += FPSTR(wifi_manager::HTML::HEAD_END);
   page += "<h2>";
   page += _apName;
   if (WiFi.SSID() != ""){
-	  if (WiFi.status()==WL_CONNECTED){
-		  page += " on ";
-		  page += WiFi.SSID();
-	  }
-	  else{
-		  page += " <s>on ";
-		  page += WiFi.SSID();
-		  page += "</s>";
-	  }
-
+    if (WiFi.status()==WL_CONNECTED){
+      page += " on ";
+      page += WiFi.SSID();
+    }
+    else{
+      page += " <s>on ";
+      page += WiFi.SSID();
+      page += "</s>";
+    }
   }
   page += "</h2>";
-  page += FPSTR(HTTP_PORTAL_OPTIONS);
+  page += FPSTR(wifi_manager::HTML::PORTAL_OPTIONS);
   page += F("<div class=\"msg\">");
   reportStatus(page);
   page += F("</div>");
-  page += FPSTR(HTTP_END);
+  page += FPSTR(wifi_manager::HTML::END);
 
   responce->send(200, "text/html", page.c_str());
-
 }
 
 /** Wifi config page handler */
-void WiFiManager::handleWifi(Request* request, Responce* responce, boolean scan) {
+void WiFiManager::handleWifi(wifi_manager::Request* request, wifi_manager::Responce* responce, boolean scan) {
   responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   responce->sendHeader("Pragma", "no-cache");
   responce->sendHeader("Expires", "-1");
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "Config ESP");
-  page += FPSTR(HTTP_SCRIPT);
-  page += FPSTR(HTTP_STYLE);
+  page += FPSTR(wifi_manager::HTML::SCRIPT);
+  page += FPSTR(wifi_manager::HTML::STYLE);
   page += _customHeadElement;
-  page += FPSTR(HTTP_HEAD_END);
+  page += FPSTR(wifi_manager::HTML::HEAD_END);
 
   if (scan) {
     int n;
@@ -492,14 +506,14 @@ void WiFiManager::handleWifi(Request* request, Responce* responce, boolean scan)
       page += F("No networks found. Refresh to scan again.");
     } else {
       //display networks in page
-      for (int i = 0; i < n; i++) {
+      for (size_t i = 0; i < n; i++) {
         if(indices[i] == -1) continue; // skip dups and those that are below the required quality
 
         DEBUG_WM(WiFi.SSID(indices[i]));
         DEBUG_WM(WiFi.RSSI(indices[i]));
         int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
 
-        String item = FPSTR(HTTP_ITEM);
+        String item = FPSTR(wifi_manager::HTML::ITEM);
         String rssiQ;
         rssiQ += quality;
         item.replace("{v}", WiFi.SSID(indices[i]));
@@ -520,30 +534,30 @@ void WiFiManager::handleWifi(Request* request, Responce* responce, boolean scan)
   }
 
   page += F("<h2>Configuration</h2>");
-  page += FPSTR(HTTP_FORM_START);
+  page += FPSTR(wifi_manager::HTML::FORM_START);
   char parLength[2];
   // add the extra parameters to the form
-  for (int i = 0; i < _paramsCount; i++) {
+  for (size_t i = 0; i < _paramsCount; i++) {
     if (_params[i] == NULL) {
       break;
     }
-
-	String pitem;
-	switch (_params[i]->getLabelPlacement()) {
-    case WFM_LABEL_BEFORE:
-	  pitem = FPSTR(HTTP_FORM_LABEL);
-	  pitem += FPSTR(HTTP_FORM_PARAM);
-      break;
-    case WFM_LABEL_AFTER:
-	  pitem = FPSTR(HTTP_FORM_PARAM);
-	  pitem += FPSTR(HTTP_FORM_LABEL);
-      break;
-    default:
-	  // WFM_NO_LABEL
-      pitem = FPSTR(HTTP_FORM_PARAM);
-    break;
-  }
-
+    
+    String pitem;
+    switch (_params[i]->getLabelPlacement()) {
+      case WFM_LABEL_BEFORE:
+        pitem = FPSTR(wifi_manager::HTML::FORM_LABEL);
+        pitem += FPSTR(wifi_manager::HTML::FORM_PARAM);
+        break;
+      case WFM_LABEL_AFTER:
+        pitem = FPSTR(wifi_manager::HTML::FORM_PARAM);
+        pitem += FPSTR(wifi_manager::HTML::FORM_LABEL);
+        break;
+      default:
+          // WFM_NO_LABEL
+        pitem = FPSTR(wifi_manager::HTML::FORM_PARAM);
+        break;
+    }
+    
     if (_params[i]->getID() != NULL) {
       pitem.replace("{i}", _params[i]->getID());
       pitem.replace("{n}", _params[i]->getID());
@@ -563,44 +577,44 @@ void WiFiManager::handleWifi(Request* request, Responce* responce, boolean scan)
   }
 
    //if (_sta_static_ip) declaration removed
-    String item = FPSTR(HTTP_FORM_OPTIONS_START);
+  String item = FPSTR(wifi_manager::HTML::FORM_OPTIONS_START);
 
-    page += item;
+  page += item;
 
-    item = FPSTR(HTTP_FORM_PARAM);
-    item.replace("{i}", "ip");
-    item.replace("{n}", "ip");
-    item.replace("{p}", "Static IP");
-    item.replace("{l}", "15");
-    item.replace("{v}", "");
+  item = FPSTR(wifi_manager::HTML::FORM_PARAM);
+  item.replace("{i}", "ip");
+  item.replace("{n}", "ip");
+  item.replace("{p}", "Static IP");
+  item.replace("{l}", "15");
+  item.replace("{v}", "");
 
-    page += item;
+  page += item;
 
-    item = FPSTR(HTTP_FORM_PARAM);
-    item.replace("{i}", "gw");
-    item.replace("{n}", "gw");
-    item.replace("{p}", "Static Gateway");
-    item.replace("{l}", "15");
-    item.replace("{v}", "");
+  item = FPSTR(wifi_manager::HTML::FORM_PARAM);
+  item.replace("{i}", "gw");
+  item.replace("{n}", "gw");
+  item.replace("{p}", "Static Gateway");
+  item.replace("{l}", "15");
+  item.replace("{v}", "");
 
-    page += item;
+  page += item;
 
-    item = FPSTR(HTTP_FORM_PARAM);
-    item.replace("{i}", "sn");
-    item.replace("{n}", "sn");
-    item.replace("{p}", "Subnet");
-    item.replace("{l}", "15");
-    item.replace("{v}", "");
+  item = FPSTR(wifi_manager::HTML::FORM_PARAM);
+  item.replace("{i}", "sn");
+  item.replace("{n}", "sn");
+  item.replace("{p}", "Subnet");
+  item.replace("{l}", "15");
+  item.replace("{v}", "");
 
-    page += item;
+  page += item;
 
-    item = FPSTR(HTTP_FORM_OPTIONS_END);
+  item = FPSTR(wifi_manager::HTML::FORM_OPTIONS_END);
 
-    page += item;
+  page += item;
 
-  page += FPSTR(HTTP_FORM_END);
+  page += FPSTR(wifi_manager::HTML::FORM_END);
 
-  page += FPSTR(HTTP_END);
+  page += FPSTR(wifi_manager::HTML::END);
 
   responce->send(200, "text/html", page.c_str());
 
@@ -608,7 +622,7 @@ void WiFiManager::handleWifi(Request* request, Responce* responce, boolean scan)
 }
 
 /** Handle the WLAN save form and redirect to WLAN config page again */
-void WiFiManager::handleWifiSave(Request* request, Responce* responce) {
+void WiFiManager::handleWifiSave(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("WiFi save"));
 
   //SAVE/connect here
@@ -616,14 +630,14 @@ void WiFiManager::handleWifiSave(Request* request, Responce* responce) {
   _pass = request->arg("p").c_str();
 
   //parameters
-  for (int i = 0; i < _paramsCount; i++) {
+  for (size_t i = 0; i < _paramsCount; i++) {
     if (_params[i] == NULL) {
       break;
     }
     //read parameter
     String value = request->arg(_params[i]->getID()).c_str();
-    //store it in array
-    value.toCharArray(_params[i]->_value, _params[i]->_length);
+      //store it in array
+    value.toCharArray(const_cast<char *>(_params[i]->getValue()), _params[i]->getValueLength());
     DEBUG_WM(F("Parameter"));
     DEBUG_WM(_params[i]->getID());
     DEBUG_WM(value);
@@ -655,45 +669,45 @@ void WiFiManager::handleWifiSave(Request* request, Responce* responce) {
 
   }
   if (request->arg("ip") != "" && request->arg("gw") != "" && request->arg("sn") != "") {
-       SPIFFS.begin();
-       if (!SPIFFS.open("/formated.txt", "r")){
-             SPIFFS.format();
-             File format = SPIFFS.open("/formated.txt", "w+");
-             if (format) { 
-                     format.close();
-                     DEBUG_WM(F("SPIFFS has been formated"));
-                         }
-            }
-
-       File configFile = SPIFFS.open("/wificonfig.txt", "w+");
-       if (configFile) 
-       {
-       StaticJsonBuffer<200> jsonBuffer;
-       JsonObject& data = jsonBuffer.createObject();
-          data["ip"] = request->arg("ip");
-          data["gw"] = request->arg("gw");
-          data["sn"] = request->arg("sn");
-       data.printTo(configFile);
-       configFile.close();
-       DEBUG_WM(F("wificonfig has been writed"));
-       }
-       setStatic = true;
-
+    SPIFFS.begin();
+    if (!SPIFFS.open("/formated.txt", "r")){
+      SPIFFS.format();
+      File format = SPIFFS.open("/formated.txt", "w+");
+      if (format) {
+        format.close();
+        DEBUG_WM(F("SPIFFS has been formated"));
+      }
+    }
+    
+    File configFile = SPIFFS.open("/wificonfig.txt", "w+");
+    if (configFile)
+      {
+      StaticJsonBuffer<200> jsonBuffer;
+      JsonObject& data = jsonBuffer.createObject();
+      data["ip"] = request->arg("ip");
+      data["gw"] = request->arg("gw");
+      data["sn"] = request->arg("sn");
+      data.printTo(configFile);
+      configFile.close();
+      DEBUG_WM(F("wificonfig has been writed"));
+      }
+    setStatic = true;
+    
   }else{
-       removeWFConfig();
-       setStatic = false;
+    removeWFConfig();
+    setStatic = false;
   }
 
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "Credentials Saved");
-  page += FPSTR(HTTP_SCRIPT);
-  page += FPSTR(HTTP_STYLE);
+  page += FPSTR(wifi_manager::HTML::SCRIPT);
+  page += FPSTR(wifi_manager::HTML::STYLE);
   page += _customHeadElement;
-  page += FPSTR(HTTP_HEAD_END);
-  page += FPSTR(HTTP_SAVED);
+  page += FPSTR(wifi_manager::HTML::HEAD_END);
+  page += FPSTR(wifi_manager::HTML::SAVED);
   page.replace("{v}", "ESP" + String(ESP.getChipId()));
   page.replace("{x}", _ssid);
-  page += FPSTR(HTTP_END);
+  page += FPSTR(wifi_manager::HTML::END);
 
   responce->send(200, "text/html", page.c_str());
 
@@ -702,44 +716,43 @@ void WiFiManager::handleWifiSave(Request* request, Responce* responce) {
   connect = true; //signal ready to connect/reset
 }
 /** Handle shut down the server page */
-void WiFiManager::handleServerClose(Request* request, Responce* responce) {
-    DEBUG_WM(F("Server Close"));
-    responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    responce->sendHeader("Pragma", "no-cache");
-    responce->sendHeader("Expires", "-1");
-    String page = FPSTR(HTTP_HEAD);
-    page.replace("{v}", "Close Server");
-    page += FPSTR(HTTP_SCRIPT);
-    page += FPSTR(HTTP_STYLE);
-    page += _customHeadElement;
-    page += FPSTR(HTTP_HEAD_END);
-    page += F("<div class=\"msg\">");
-    page += F("My network is <strong>");
-    page += WiFi.SSID();
-    page += F("</strong><br>");
-    page += F("My IP address is <strong>");
-    page += WiFi.localIP().toString();
-    page += F("</strong><br><br>");
-    page += F("Configuration server closed...<br><br>");
+void WiFiManager::handleServerClose(wifi_manager::Request* request, wifi_manager::Responce* responce) {
+  DEBUG_WM(F("Server Close"));
+  responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  responce->sendHeader("Pragma", "no-cache");
+  responce->sendHeader("Expires", "-1");
+  String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
+  page.replace("{v}", "Close Server");
+  page += FPSTR(wifi_manager::HTML::SCRIPT);
+  page += FPSTR(wifi_manager::HTML::STYLE);
+  page += _customHeadElement;
+  page += FPSTR(wifi_manager::HTML::HEAD_END);
+  page += F("<div class=\"msg\">");
+  page += F("My network is <strong>");
+  page += WiFi.SSID();
+  page += F("</strong><br>");
+  page += F("My IP address is <strong>");
+  page += WiFi.localIP().toString();
+  page += F("</strong><br><br>");
+  page += F("Configuration server closed...<br><br>");
     //page += F("Push button on device to restart configuration server!");
-    page += FPSTR(HTTP_END);
-    responce->send(200, "text/html", page.c_str());
-    stopConfigPortal = true; //signal ready to shutdown config portal
+  page += FPSTR(wifi_manager::HTML::END);
+  responce->send(200, "text/html", page.c_str());
+  stopConfigPortal = true; //signal ready to shutdown config portal
   DEBUG_WM(F("Sent server close page"));
-
 }
 /** Handle the info page */
-void WiFiManager::handleInfo(Request* request, Responce* responce) {
+void WiFiManager::handleInfo(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("Info"));
   responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   responce->sendHeader("Pragma", "no-cache");
   responce->sendHeader("Expires", "-1");
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "Info");
-  page += FPSTR(HTTP_SCRIPT);
-  page += FPSTR(HTTP_STYLE);
+  page += FPSTR(wifi_manager::HTML::SCRIPT);
+  page += FPSTR(wifi_manager::HTML::STYLE);
   page += _customHeadElement;
-  page += FPSTR(HTTP_HEAD_END);
+  page += FPSTR(wifi_manager::HTML::HEAD_END);
   page += F("<h2>WiFi Information</h2>");
   page += F("Android app from <a href=\"https://play.google.com/store/apps/details?id=au.com.umranium.espconnect\">https://play.google.com/store/apps/details?id=au.com.umranium.espconnect</a> provides easier ESP WiFi configuration.<p/>");
   reportStatus(page);
@@ -800,14 +813,14 @@ void WiFiManager::handleInfo(Request* request, Responce* responce) {
   page += F("<td>Run a WiFi scan and return results in JSON format. Interface for programmatic WiFi configuration.</td></tr>");
   page += F("</table>");
   page += F("<p/>More information about WiFiManager at <a href=\"https://github.com/kentaylor/WiFiManager\">https://github.com/kentaylor/WiFiManager</a>.");
-  page += FPSTR(HTTP_END);
+  page += FPSTR(wifi_manager::HTML::END);
 
   responce->send(200, "text/html", page.c_str());
 
   DEBUG_WM(F("Sent info page"));
 }
 /** Handle the state page */
-void WiFiManager::handleState(Request* request, Responce* responce) {
+void WiFiManager::handleState(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("State - json"));
   responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   responce->sendHeader("Pragma", "no-cache");
@@ -822,11 +835,11 @@ void WiFiManager::handleState(Request* request, Responce* responce) {
   page += WiFi.macAddress();
   page += F("\",");
   if (WiFi.psk()!=""){
-  	  page += F("\"Password\":true,");
-    }
+    page += F("\"Password\":true,");
+  }
   else {
-  	  page += F("\"Password\":false,");
-    }
+    page += F("\"Password\":false,");
+  }
   page += F("\"SSID\":\"");
   page += WiFi.SSID();
   page += F("\"}");
@@ -835,7 +848,7 @@ void WiFiManager::handleState(Request* request, Responce* responce) {
 }
 
 /** Handle the scan page */
-void WiFiManager::handleScan(Request* request, Responce* responce) {
+void WiFiManager::handleScan(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("State - json"));
   responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   responce->sendHeader("Pragma", "no-cache");
@@ -850,25 +863,25 @@ void WiFiManager::handleScan(Request* request, Responce* responce) {
   DEBUG_WM(F("In handleScan, scanWifiNetworks done"));
   String page = F("{\"Access_Points\":[");
   //display networks in page
-  for (int i = 0; i < n; i++) {
-          if(indices[i] == -1) continue; // skip duplicates and those that are below the required quality
-          if(i != 0) page += F(", ");
-          DEBUG_WM(WiFi.SSID(indices[i]));
-          DEBUG_WM(WiFi.RSSI(indices[i]));
-          int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
-          String item = FPSTR(JSON_ITEM);
-          String rssiQ;
-          rssiQ += quality;
-          item.replace("{v}", WiFi.SSID(indices[i]));
-          item.replace("{r}", rssiQ);
-          if (WiFi.encryptionType(indices[i]) != ENC_TYPE_NONE) {
-            item.replace("{i}", "true");
-          } else {
-            item.replace("{i}", "false");
-          }
-          //DEBUG_WM(item);
-          page += item;
-          delay(0);
+  for (size_t i = 0; i < n; i++) {
+    if(indices[i] == -1) continue; // skip duplicates and those that are below the required quality
+    if(i != 0) page += F(", ");
+    DEBUG_WM(WiFi.SSID(indices[i]));
+    DEBUG_WM(WiFi.RSSI(indices[i]));
+    int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
+    String item = FPSTR(wifi_manager::HTML::JSON_ITEM);
+    String rssiQ;
+    rssiQ += quality;
+    item.replace("{v}", WiFi.SSID(indices[i]));
+    item.replace("{r}", rssiQ);
+    if (WiFi.encryptionType(indices[i]) != ENC_TYPE_NONE) {
+      item.replace("{i}", "true");
+    } else {
+      item.replace("{i}", "false");
+    }
+      //DEBUG_WM(item);
+    page += item;
+    delay(0);
   }
   free(indices); //indices array no longer required so free memory
   page += F("]}");
@@ -877,19 +890,19 @@ void WiFiManager::handleScan(Request* request, Responce* responce) {
 }
 
 /** Handle the reset page */
-void WiFiManager::handleReset(Request* request, Responce* responce) {
+void WiFiManager::handleReset(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("Reset"));
   responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   responce->sendHeader("Pragma", "no-cache");
   responce->sendHeader("Expires", "-1");
-  String page = FPSTR(HTTP_HEAD);
+  String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "WiFi Information");
-  page += FPSTR(HTTP_SCRIPT);
-  page += FPSTR(HTTP_STYLE);
+  page += FPSTR(wifi_manager::HTML::SCRIPT);
+  page += FPSTR(wifi_manager::HTML::STYLE);
   page += _customHeadElement;
-  page += FPSTR(HTTP_HEAD_END);
+  page += FPSTR(wifi_manager::HTML::HEAD_END);
   page += F("Module will reset in a few seconds.");
-  page += FPSTR(HTTP_END);
+  page += FPSTR(wifi_manager::HTML::END);
   responce->send(200, "text/html", page.c_str());
 
   DEBUG_WM(F("Sent reset page"));
@@ -899,37 +912,34 @@ void WiFiManager::handleReset(Request* request, Responce* responce) {
   delay(2000);
 }
 
-void WiFiManager::handleNotFound(Request* request, Responce* responce) {
+void WiFiManager::handleNotFound(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   if (captivePortal(request, responce)) { // If caprive portal redirect instead of displaying the error page.
-      return;
+    return;
   }
   String message = "File Not Found\n\n";
   message += "URI: ";
   message += request->uri();
   message += "\nMethod: ";
-  message += ( request->method() == HTTP_GET ) ? "GET" : "POST";
+  message += request->methodIsGet() ? "GET" : "POST";
   message += "\nArguments: ";
   message += request->args();
   message += "\n";
 
-  for ( uint8_t i = 0; i < request->args(); i++ ) {
+  for (size_t i = 0; i < request->args(); i++ ) {
     message += " " + request->argName ( i ) + ": " + request->arg ( i ) + "\n";
   }
   responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   responce->sendHeader("Pragma", "no-cache");
   responce->sendHeader("Expires", "-1");
-  responce->send ( 404, "text/plain", message.c_str());
+  responce->send(404, "text/plain", message.c_str());
 }
 
 /** Redirect to captive portal if we got a request for another domain. Return true in
 that case so the page handler do not try to handle the request again. */
-boolean WiFiManager::captivePortal(Request* request, Responce* responce) {
-  if (!isIp(request->hostHeader()) && request->hostHeader() != (String(myHostname))) {
+boolean WiFiManager::captivePortal(wifi_manager::Request* request, wifi_manager::Responce* responce) {
+  if (!isIp(request->host()) && request->host() != (String(myHostname))) {
     DEBUG_WM(F("Request redirected to captive portal"));
-    responce->sendHeader("Location", (String("http://")+myHostname).c_str(), true);
-    responce->setContentLength(0);
-    responce->send ( 302, "text/plain", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
-//    server->client().stop(); // Stop is needed because we sent no content length
+    request->redirect(String("http://")+myHostname);
     return true;
   }
   return false;
@@ -958,56 +968,55 @@ void WiFiManager::setRemoveDuplicateAPs(boolean removeDuplicates) {
 //Scan for WiFiNetworks in range and sort by signal strength
 //space for indices array allocated on the heap and should be freed when no longer required
 int WiFiManager::scanWifiNetworks(int **indicesptr) {
-    int n = WiFi.scanNetworks();
-    DEBUG_WM(F("Scan done"));
-    if (n == 0) {
-      DEBUG_WM(F("No networks found"));
-      return(0);
-    } else {
-	  // Allocate space off the heap for indices array.
-	  // This space should be freed when no longer required.
+  int n = WiFi.scanNetworks();
+  DEBUG_WM(F("Scan done"));
+  if (n == 0) {
+    DEBUG_WM(F("No networks found"));
+    return(0);
+  } else {
+    // Allocate space off the heap for indices array.
+    // This space should be freed when no longer required.
  	  int* indices = (int *)malloc(n*sizeof(int));
-					if (indices == NULL){
+    if (indices == NULL){
 						DEBUG_WM(F("ERROR: Out of memory"));
 						return(0);
-						}
-	  *indicesptr = indices;
+    }
+    *indicesptr = indices;
       //sort networks
-      for (int i = 0; i < n; i++) {
-        indices[i] = i;
-      }
-
-      std::sort(indices, indices + n, [](const int & a, const int & b) -> bool
-      {
-        return WiFi.RSSI(a) > WiFi.RSSI(b);
-      });
+    for (size_t i = 0; i < n; i++) {
+      indices[i] = i;
+    }
+    
+    std::sort(indices, indices + n, [](const int & a, const int & b){
+      return WiFi.RSSI(a) > WiFi.RSSI(b);
+    });
       // remove duplicates ( must be RSSI sorted )
-      if(_removeDuplicateAPs) {
-        String cssid;
-        for (int i = 0; i < n; i++) {
-          if(indices[i] == -1) continue;
-          cssid = WiFi.SSID(indices[i]);
-          for (int j = i + 1; j < n; j++) {
-            if(cssid == WiFi.SSID(indices[j])){
-              DEBUG_WM("DUP AP: " + WiFi.SSID(indices[j]));
-              indices[j] = -1; // set dup aps to index -1
-            }
+    if(_removeDuplicateAPs) {
+      String cssid;
+      for (size_t i = 0; i < n; i++) {
+        if(indices[i] == -1) continue;
+        cssid = WiFi.SSID(indices[i]);
+        for (size_t j = i + 1; j < n; j++) {
+          if(cssid == WiFi.SSID(indices[j])){
+            DEBUG_WM("DUP AP: " + WiFi.SSID(indices[j]));
+            indices[j] = -1; // set dup aps to index -1
           }
         }
       }
-
-      for (int i = 0; i < n; i++) {
-        if(indices[i] == -1) continue; // skip dups
-
-        int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
-        if (!(_minimumQuality == -1 || _minimumQuality < quality)) {
-          indices[i] == -1;
-          DEBUG_WM(F("Skipping due to quality"));
-        }
-      }
-
-      return (n);
     }
+
+    for (int i = 0; i < n; i++) {
+      if(indices[i] == -1) continue; // skip dups
+      
+      int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
+      if (!(_minimumQuality == -1 || _minimumQuality < quality)) {
+        indices[i] == -1;
+        DEBUG_WM(F("Skipping due to quality"));
+      }
+    }
+    
+    return (n);
+  }
 }
 
 template <typename Generic>
@@ -1052,23 +1061,23 @@ String WiFiManager::toStringIp(IPAddress ip) {
   return res;
 }
 void WiFiManager::getStatCred(){
-     StaticJsonBuffer<200> jsonBuffer; 
-     IPAddress _ip,_gw,_sn;
-     SPIFFS.begin();
-     File config = SPIFFS.open("/wificonfig.txt", "r");
-     if (config) {
-          String line = config.readStringUntil('\n');
-          config.close();
-          JsonObject& statdata = jsonBuffer.parseObject(line);
-          String static_ip = statdata["ip"];
-          String static_gw = statdata["gw"];
-          String static_sn = statdata["sn"];
-          _ip.fromString(static_ip);
-          _gw.fromString(static_gw);
-          _sn.fromString(static_sn);
-          WiFi.config(_ip,_gw,_sn);
-          Serial.println("Static IP, Gate, Subnet read from wificonfig");
-     }else{
-     Serial.println("Static IP, Gate, Subnet have not been found");
-     }
+  StaticJsonBuffer<200> jsonBuffer;
+  IPAddress _ip,_gw,_sn;
+  SPIFFS.begin();
+  File config = SPIFFS.open("/wificonfig.txt", "r");
+  if (config) {
+    String line = config.readStringUntil('\n');
+    config.close();
+    JsonObject& statdata = jsonBuffer.parseObject(line);
+    String static_ip = statdata["ip"];
+    String static_gw = statdata["gw"];
+    String static_sn = statdata["sn"];
+    _ip.fromString(static_ip);
+    _gw.fromString(static_gw);
+    _sn.fromString(static_sn);
+    WiFi.config(_ip,_gw,_sn);
+    Serial.println("Static IP, Gate, Subnet read from wificonfig");
+  }else{
+    Serial.println("Static IP, Gate, Subnet have not been found");
+  }
 }
