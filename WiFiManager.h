@@ -76,11 +76,113 @@ class WiFiManagerParameter {
 };
 
 
+
+namespace Internal {
+  
+  class Request{
+  public:
+    virtual String hostHeader() = 0;
+    virtual String uri() = 0;
+    virtual uint8_t method() = 0;
+    virtual String arg(uint8_t) = 0;
+    virtual String arg(const char *) = 0;
+    virtual uint8_t args() = 0;
+    virtual String argName(uint8_t i) = 0;
+    virtual ~Request(){};
+  };
+  
+  class Responce {
+  public:
+    virtual void send(int, const char*, const char*) = 0;
+    virtual void sendHeader(const char*, const char *, bool first = false) = 0;
+    virtual void setContentLength(size_t) = 0;
+    virtual ~Responce(){};
+  };
+  
+  typedef std::function<void(Request *, Responce *)> RestCallback;
+  
+  class ServerBase{
+  public:
+    ServerBase() {}
+    virtual void on(const char* path, RestCallback) = 0;
+    virtual void onNotFound(RestCallback) = 0;
+    virtual void begin() = 0;
+    virtual void handleClient() = 0;
+    virtual ~ServerBase(){};
+  };
+  
+  template <typename T>
+  class ConcreteServer : public ServerBase, Request, Responce {
+    ConcreteServer(T& t);
+  };
+  
+  template <>
+  class ConcreteServer<ESP8266WebServer> : public ServerBase, Request, Responce {
+    ESP8266WebServer _server;
+  public:
+    ConcreteServer(const ESP8266WebServer &server) : _server(server){}
+    virtual ~ConcreteServer() {}
+    
+#pragma mark - Request
+    virtual void on(const char * path, RestCallback callback) override {
+      _server.on(path, std::bind(callback, (Request *)this, (Responce *)this));
+    }
+    
+    virtual void onNotFound(RestCallback callback) override {
+      _server.onNotFound(std::bind(callback, (Request *)this, (Responce *)this));
+    }
+    
+    virtual void begin() override {
+      _server.begin();
+    }
+    
+    virtual void handleClient() override {
+      _server.handleClient();
+    }
+#pragma mark - Request
+#define OVERRIDE_AND_RETURN_SERVER_VALUE(name) name() override { return _server. name () ; }
+    
+    virtual String OVERRIDE_AND_RETURN_SERVER_VALUE( hostHeader );
+    virtual String OVERRIDE_AND_RETURN_SERVER_VALUE( uri );
+    virtual uint8_t OVERRIDE_AND_RETURN_SERVER_VALUE( method );
+    virtual uint8_t OVERRIDE_AND_RETURN_SERVER_VALUE( args );
+    
+    virtual String arg(uint8_t i) override {
+      return _server.arg(i);
+    }
+    
+    virtual String arg(const char * name) override {
+      return _server.arg(name);
+    }
+    
+    virtual String argName(uint8_t i) override {
+      return _server.argName(i);
+    }
+
+#pragma mark - Responce
+    
+    virtual void send(int code, const char* type, const char* value) override {
+      _server.send(code, type, value);
+    }
+    
+    virtual void sendHeader(const char* key, const char *value, bool first = false) override {
+      _server.sendHeader(key, value, first);
+    }
+    
+    virtual void setContentLength(size_t length) override {
+      _server.setContentLength(length);
+    }
+  };
+}
+
 class WiFiManager
 {
+  std::function<Internal::ServerBase *()> newServer;
   public:
-    WiFiManager();
-
+  
+    template <typename T>
+    WiFiManager(const T& t) : newServer([&](){ return new Internal::ConcreteServer<T>(t); }) {}
+  
     boolean       autoConnect(); //Deprecated. Do not use.
     boolean       autoConnect(char const *apName, char const *apPassword = NULL); //Deprecated. Do not use.
 
@@ -133,8 +235,8 @@ class WiFiManager
     void removeWFConfig();
     
   private:
-    std::unique_ptr<DNSServer>        dnsServer;
-    std::unique_ptr<ESP8266WebServer> server;
+    std::unique_ptr<DNSServer>            dnsServer;
+    std::unique_ptr<Internal::ServerBase> server;
 
     //const int     WM_DONE                 = 0;
     //const int     WM_WAIT                 = 10;
@@ -178,16 +280,16 @@ class WiFiManager
     int           connectWifi(String ssid, String pass);
     uint8_t       waitForConnectResult();
 
-    void          handleRoot();
-    void          handleWifi(boolean scan);
-    void          handleWifiSave();
-    void          handleServerClose();
-    void          handleInfo();
-    void          handleState();
-    void          handleScan();
-    void          handleReset();
-    void          handleNotFound();
-    boolean       captivePortal();
+    void          handleRoot(Internal::Request*, Internal::Responce*);
+    void          handleWifi(Internal::Request*, Internal::Responce*, boolean scan);
+    void          handleWifiSave(Internal::Request*, Internal::Responce*);
+    void          handleServerClose(Internal::Request*, Internal::Responce*);
+    void          handleInfo(Internal::Request*, Internal::Responce*);
+    void          handleState(Internal::Request*, Internal::Responce*);
+    void          handleScan(Internal::Request*, Internal::Responce*);
+    void          handleReset(Internal::Request*, Internal::Responce*);
+    void          handleNotFound(Internal::Request*, Internal::Responce*);
+    boolean       captivePortal(Internal::Request*, Internal::Responce*);
     void          reportStatus(String &page);
 
     // DNS server
