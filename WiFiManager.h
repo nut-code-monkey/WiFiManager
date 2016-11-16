@@ -17,11 +17,9 @@
 
 #include "WiFiManagerServerBase.h"
 
-#ifndef ASYNC_WEB_SERVER
+#ifndef EXTERNAL_WEB_SERVER
 #include "WiFiManagerESP8266WebServer.h"
 #include <ESP8266WebServer.h>
-#else
-#include "WiFiManagerAsyncWebServer.h"
 #endif
 
 #include <DNSServer.h>
@@ -73,7 +71,7 @@ class WiFiManager
   std::function<wifi_manager::ServerBase *()> newServer;
 public:
   
-  #ifndef ASYNC_WEB_SERVER
+  #ifndef EXTERNAL_WEB_SERVER
     WiFiManager() : newServer([]{
       return new wifi_manager::Server<ESP8266WebServer>(ESP8266WebServer(80));
     }) {}
@@ -136,7 +134,7 @@ public:
     void removeWFConfig();
     
   private:
-    std::unique_ptr<DNSServer>            dnsServer;
+    std::unique_ptr<DNSServer>                dnsServer;
     std::unique_ptr<wifi_manager::ServerBase> server;
 
     //const int     WM_DONE                 = 0;
@@ -146,7 +144,7 @@ public:
 
     void          setupConfigPortal();
     void          startWPS();
-    char*         getStatus(int status);
+    String        getStatus(int status);
 
     const char*   _apName                 = "no-net";
     const char*   _apPassword             = NULL;

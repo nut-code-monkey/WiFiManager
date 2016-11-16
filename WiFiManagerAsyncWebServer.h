@@ -1,11 +1,11 @@
 #ifndef WiFiManagerAsyncWebServer_h
 #define WiFiManagerAsyncWebServer_h
 
-#ifndef ASYNC_WEB_SERVER
-#define ASYNC_WEB_SERVER 1
+#ifndef EXTERNAL_WEB_SERVER
+#define EXTERNAL_WEB_SERVER 1
 #endif
 
-#ifdef ASYNC_WEB_SERVER
+#ifdef EXTERNAL_WEB_SERVER
 
 #include <WiFiManagerServerBase.h>
 #include <ESPAsyncWebServer.h>
@@ -14,69 +14,29 @@
 namespace wifi_manager {
 
   namespace async_web_server{
-    class RequestAdapter : public Request, Responce {
+    class ResponceAdapter : public Responce{
       AsyncWebServerRequest* _request;
-      std::map<const char*, const char *> _headers;
-      const char *_firstKey, *_firstValue;
-
+      std::map<String, String> _headers;
+      String _firstKey, _firstValue;
     public:
-      RequestAdapter(AsyncWebServerRequest* request) : _request(request) {}
-      virtual ~RequestAdapter() {}
-      
-      inline
-      virtual String host() override {
-        return _request->host();
-      };
-      
-      inline
-      virtual String uri() override {
-        return _request->url();
-      };
-      
-      inline
-      virtual bool methodIsGet() override {
-        return _request->method() == HTTP_GET;
-      };
-      
-      inline
-      virtual String arg(size_t i) override {
-        return _request->arg(i);
+      ResponceAdapter(AsyncWebServerRequest* request) : _request(request){
       }
+      virtual ~ResponceAdapter(){}
       
-      inline
-      virtual String arg(const char *name) override {
-        return _request->arg(name);
-      }
-      
-      inline
-      virtual size_t args() override {
-        return _request->args();
-      }
-      
-      inline
-      virtual String argName(size_t i) override {
-        return _request->argName(i);
-      }
-      
-      inline
-      virtual void redirect(const String& url) override {
-        _request->redirect(url);
-      }
-      
-      virtual void send(int status, const char* type, const char* value) override {
+      virtual void send(int status, const String& type, const String& value) override {
         
         auto responce = _request->beginResponse(status, type, value);
         if (_firstKey && _firstValue) {
           responce->addHeader(_firstKey, _firstValue);
         }
-        for (auto key: _headers) {
+        for (const auto& key: _headers) {
           responce->addHeader(key.first, key.second);
         }
-        
+
         _request->send(responce);
       }
       
-      virtual void sendHeader(const char* key, const char * value, bool first = false) override {
+      virtual void setHeader(const String& key, const String& value, bool first = false) override {
         if (first) {
           _firstKey = key;
           _firstValue = value;
@@ -86,33 +46,92 @@ namespace wifi_manager {
         }
       }
     };
+    
+    class RequestAdapter : public Request {
+      AsyncWebServerRequest* _request;
+    public:
+      RequestAdapter(AsyncWebServerRequest* request) : _request(request) {
+      }
+      virtual ~RequestAdapter() {}
+      
+      virtual String host() override {
+        return _request->host();
+      };
+      
+      virtual String uri() override {
+        return _request->url();
+      };
+      
+      virtual String methodString() override {
+        return _request->methodToString();
+      };
+      
+      virtual String arg(size_t i) override {
+        return _request->arg(i);
+      }
+      
+      virtual String arg(const String& name) override {
+        return _request->arg(name.c_str());
+      }
+      
+      virtual size_t args() override {
+        return _request->args();
+      }
+      
+      virtual String argName(size_t i) override {
+        return _request->argName(i);
+      }
+      
+      virtual void redirect(const String& url) override {
+        AsyncWebServerResponse * response = _request->beginResponse(302);
+        response->addHeader("Location",url);
+        response->addHeader("text/plain", "");
+        response->setContentLength(0);
+        _request->send(response);
+      }
+    };
   }
   
   template <>
-  class Server<AsyncWebServer> : public ServerBase {
-    AsyncWebServer _server;
-  public:
-    Server(const AsyncWebServer& server) : _server(server) {}
-    virtual ~Server(){}
+  class Server<AsyncWebServer *> : public ServerBase {
+    AsyncWebServer* _server;
     
-    virtual void on(const char* path, RestCallback callback) override {
-      _server.on(path, HTTP_ANY, [=](AsyncWebServerRequest *request){
-        async_web_server::RequestAdapter adapter(request);
-        callback((Request*)&adapter, (Responce*)&adapter);
+  public:
+      // server not owned AsyncServer
+    Server(AsyncWebServer* server) : _server(server) {
+    }
+    virtual ~Server(){
+//      _server->resetAllHandlers();
+//      _server = nullptr;
+    }
+    
+    virtual void on(const String& path, RestCallback callback) override {
+      
+      _server->on(path.c_str(), [=](AsyncWebServerRequest *request){
+        Serial.printf("-> %s %s\n", request->methodToString(), path.c_str());
+        
+        async_web_server::RequestAdapter requestAdapter(request);
+        async_web_server::ResponceAdapter responceAdapter(request);
+        callback(&requestAdapter, &responceAdapter);
       });
     }
     
     virtual void onNotFound(RestCallback callback)  override {
-      _server.onNotFound([=](AsyncWebServerRequest *request){
-        async_web_server::RequestAdapter adapter(request);
-        callback((Request*)&adapter, (Responce*)&adapter);
+      _server->onNotFound([=](AsyncWebServerRequest *request){
+        async_web_server::RequestAdapter requestAdapter(request);
+        async_web_server::ResponceAdapter responceAdapter(request);
+        callback(&requestAdapter, &responceAdapter);
       });
     }
     
     virtual void begin() override {
-      _server.begin();
+      _server->begin();
     }
     virtual void handleClient() override {}
+    
+    virtual void reset() override {
+//      _server->resetAllHandlers();
+    }
   };
 }
 

@@ -77,21 +77,32 @@ namespace wifi_manager {
     _customHTML = custom;
   }
   
+  inline
   const char* Parameter::getValue() const {
     return _value;
   }
+  
+  inline
   const char* Parameter::getID() const {
     return _id;
   }
+  
+  inline
   const char* Parameter::getPlaceholder() const {
     return _placeholder;
   }
-  int Parameter::getValueLength() const {
+  
+  inline
+  size_t Parameter::getValueLength() const {
     return _length;
   }
+  
+  inline
   int Parameter::getLabelPlacement() const {
     return _labelPlacement;
   }
+  
+  inline
   const char* Parameter::getCustomHTML() const {
     return _customHTML;
   }
@@ -106,14 +117,22 @@ void WiFiManager::addParameter(wifi_manager::Parameter *p) {
 }
 
 void WiFiManager::setupConfigPortal() {
+  Serial.println("WiFiManager::setupConfigPortal()");
   stopConfigPortal = false; //Signal not to close config portal
   /*This library assumes autoconnect is set to 1. It usually is
   but just in case check the setting and turn on autoconnect if it is off.
   Some useful discussion at https://github.com/esp8266/Arduino/issues/1615*/
   if (WiFi.getAutoConnect()==0)WiFi.setAutoConnect(1);
+  
   dnsServer.reset(new DNSServer());
-  server.reset(newServer());
 
+  if (server.get()) {
+    server->reset();
+  }
+  else{
+    server.reset(newServer());
+  }  
+  
   DEBUG_WM(F(""));
   _configPortalStart = millis();
 
@@ -149,7 +168,7 @@ void WiFiManager::setupConfigPortal() {
   dnsServer->start(DNS_PORT, "*", WiFi.softAPIP());
 
   using namespace std::placeholders;
-  
+  server->reset();
   /* Setup web pages: root, wifi config pages, SO captive portal detectors and not found. */
   server->on("/", std::bind(&WiFiManager::handleRoot, this, _1, _2));
   server->on("/wifi", std::bind(&WiFiManager::handleWifi, this, _1, _2, true));
@@ -163,7 +182,6 @@ void WiFiManager::setupConfigPortal() {
   server->onNotFound (std::bind(&WiFiManager::handleNotFound, this, _1, _2));
   server->begin(); // Web server start
   DEBUG_WM(F("HTTP server started"));
-
 }
 
 boolean WiFiManager::autoConnect() {
@@ -242,7 +260,7 @@ boolean  WiFiManager::startConfigPortal(char const *apName, char const *apPasswo
 
     if (connect) {
       connect = false;
-      TimedOut=false;
+      TimedOut = false;
       delay(2000);
       DEBUG_WM(F("Connecting to new AP"));
 
@@ -356,7 +374,7 @@ void WiFiManager::startWPS() {
 }
 //Convenient for debugging but wasteful of program space.
 //Remove if short of space
-char* WiFiManager::getStatus(int status) {
+String WiFiManager::getStatus(int status) {
   switch (status)
   {
     case WL_NO_SHIELD: return "WL_NO_SHIELD";
@@ -450,9 +468,9 @@ void WiFiManager::handleRoot(wifi_manager::Request* request, wifi_manager::Respo
   if (captivePortal(request, responce)) { // If caprive portal redirect instead of displaying the error page.
     return;
   }
-  responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  responce->sendHeader("Pragma", "no-cache");
-  responce->sendHeader("Expires", "-1");
+  responce->setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  responce->setHeader("Pragma", "no-cache");
+  responce->setHeader("Expires", "-1");
   String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "Options");
   page += FPSTR(wifi_manager::HTML::SCRIPT);
@@ -479,14 +497,14 @@ void WiFiManager::handleRoot(wifi_manager::Request* request, wifi_manager::Respo
   page += F("</div>");
   page += FPSTR(wifi_manager::HTML::END);
 
-  responce->send(200, "text/html", page.c_str());
+  responce->send(200, "text/html", page);
 }
 
 /** Wifi config page handler */
 void WiFiManager::handleWifi(wifi_manager::Request* request, wifi_manager::Responce* responce, boolean scan) {
-  responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  responce->sendHeader("Pragma", "no-cache");
-  responce->sendHeader("Expires", "-1");
+  responce->setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  responce->setHeader("Pragma", "no-cache");
+  responce->setHeader("Expires", "-1");
   String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "Config ESP");
   page += FPSTR(wifi_manager::HTML::SCRIPT);
@@ -616,7 +634,7 @@ void WiFiManager::handleWifi(wifi_manager::Request* request, wifi_manager::Respo
 
   page += FPSTR(wifi_manager::HTML::END);
 
-  responce->send(200, "text/html", page.c_str());
+  responce->send(200, "text/html", page);
 
   DEBUG_WM(F("Sent config page"));
 }
@@ -709,7 +727,7 @@ void WiFiManager::handleWifiSave(wifi_manager::Request* request, wifi_manager::R
   page.replace("{x}", _ssid);
   page += FPSTR(wifi_manager::HTML::END);
 
-  responce->send(200, "text/html", page.c_str());
+  responce->send(200, "text/html", page);
 
   DEBUG_WM(F("Sent wifi save page"));
 
@@ -718,9 +736,9 @@ void WiFiManager::handleWifiSave(wifi_manager::Request* request, wifi_manager::R
 /** Handle shut down the server page */
 void WiFiManager::handleServerClose(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("Server Close"));
-  responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  responce->sendHeader("Pragma", "no-cache");
-  responce->sendHeader("Expires", "-1");
+  responce->setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  responce->setHeader("Pragma", "no-cache");
+  responce->setHeader("Expires", "-1");
   String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "Close Server");
   page += FPSTR(wifi_manager::HTML::SCRIPT);
@@ -737,16 +755,16 @@ void WiFiManager::handleServerClose(wifi_manager::Request* request, wifi_manager
   page += F("Configuration server closed...<br><br>");
     //page += F("Push button on device to restart configuration server!");
   page += FPSTR(wifi_manager::HTML::END);
-  responce->send(200, "text/html", page.c_str());
+  responce->send(200, "text/html", page);
   stopConfigPortal = true; //signal ready to shutdown config portal
   DEBUG_WM(F("Sent server close page"));
 }
 /** Handle the info page */
 void WiFiManager::handleInfo(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("Info"));
-  responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  responce->sendHeader("Pragma", "no-cache");
-  responce->sendHeader("Expires", "-1");
+  responce->setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  responce->setHeader("Pragma", "no-cache");
+  responce->setHeader("Expires", "-1");
   String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "Info");
   page += FPSTR(wifi_manager::HTML::SCRIPT);
@@ -815,16 +833,16 @@ void WiFiManager::handleInfo(wifi_manager::Request* request, wifi_manager::Respo
   page += F("<p/>More information about WiFiManager at <a href=\"https://github.com/kentaylor/WiFiManager\">https://github.com/kentaylor/WiFiManager</a>.");
   page += FPSTR(wifi_manager::HTML::END);
 
-  responce->send(200, "text/html", page.c_str());
+  responce->send(200, "text/html", page);
 
   DEBUG_WM(F("Sent info page"));
 }
 /** Handle the state page */
 void WiFiManager::handleState(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("State - json"));
-  responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  responce->sendHeader("Pragma", "no-cache");
-  responce->sendHeader("Expires", "-1");
+  responce->setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  responce->setHeader("Pragma", "no-cache");
+  responce->setHeader("Expires", "-1");
   String page = F("{\"Soft_AP_IP\":\"");
   page += WiFi.softAPIP().toString();
   page += F("\",\"Soft_AP_MAC\":\"");
@@ -843,16 +861,16 @@ void WiFiManager::handleState(wifi_manager::Request* request, wifi_manager::Resp
   page += F("\"SSID\":\"");
   page += WiFi.SSID();
   page += F("\"}");
-  responce->send(200, "application/json", page.c_str());
+  responce->send(200, "application/json", page);
   DEBUG_WM(F("Sent state page in json format"));
 }
 
 /** Handle the scan page */
 void WiFiManager::handleScan(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("State - json"));
-  responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  responce->sendHeader("Pragma", "no-cache");
-  responce->sendHeader("Expires", "-1");
+  responce->setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  responce->setHeader("Pragma", "no-cache");
+  responce->setHeader("Expires", "-1");
 
   int n;
   int *indices;
@@ -860,6 +878,8 @@ void WiFiManager::handleScan(wifi_manager::Request* request, wifi_manager::Respo
   //Space for indices array allocated on heap in scanWifiNetworks
   //and should be freed when indices no longer required.
   n = scanWifiNetworks(indicesptr);
+  Serial.println(String("networks:")+n);
+  
   DEBUG_WM(F("In handleScan, scanWifiNetworks done"));
   String page = F("{\"Access_Points\":[");
   //display networks in page
@@ -879,22 +899,23 @@ void WiFiManager::handleScan(wifi_manager::Request* request, wifi_manager::Respo
     } else {
       item.replace("{i}", "false");
     }
-      //DEBUG_WM(item);
+    DEBUG_WM(item);
     page += item;
     delay(0);
   }
   free(indices); //indices array no longer required so free memory
   page += F("]}");
-  responce->send(200, "application/json", page.c_str());
+  DEBUG_WM(page);
+  responce->send(200, "application/json", page);
   DEBUG_WM(F("Sent WiFi scan data ordered by signal strength in json format"));
 }
 
 /** Handle the reset page */
 void WiFiManager::handleReset(wifi_manager::Request* request, wifi_manager::Responce* responce) {
   DEBUG_WM(F("Reset"));
-  responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  responce->sendHeader("Pragma", "no-cache");
-  responce->sendHeader("Expires", "-1");
+  responce->setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  responce->setHeader("Pragma", "no-cache");
+  responce->setHeader("Expires", "-1");
   String page = FPSTR(wifi_manager::HTML::HEAD_BEGIN);
   page.replace("{v}", "WiFi Information");
   page += FPSTR(wifi_manager::HTML::SCRIPT);
@@ -903,7 +924,7 @@ void WiFiManager::handleReset(wifi_manager::Request* request, wifi_manager::Resp
   page += FPSTR(wifi_manager::HTML::HEAD_END);
   page += F("Module will reset in a few seconds.");
   page += FPSTR(wifi_manager::HTML::END);
-  responce->send(200, "text/html", page.c_str());
+  responce->send(200, "text/html", page);
 
   DEBUG_WM(F("Sent reset page"));
   delay(5000);
@@ -920,7 +941,7 @@ void WiFiManager::handleNotFound(wifi_manager::Request* request, wifi_manager::R
   message += "URI: ";
   message += request->uri();
   message += "\nMethod: ";
-  message += request->methodIsGet() ? "GET" : "POST";
+  message += request->methodString();
   message += "\nArguments: ";
   message += request->args();
   message += "\n";
@@ -928,10 +949,10 @@ void WiFiManager::handleNotFound(wifi_manager::Request* request, wifi_manager::R
   for (size_t i = 0; i < request->args(); i++ ) {
     message += " " + request->argName ( i ) + ": " + request->arg ( i ) + "\n";
   }
-  responce->sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  responce->sendHeader("Pragma", "no-cache");
-  responce->sendHeader("Expires", "-1");
-  responce->send(404, "text/plain", message.c_str());
+  responce->setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  responce->setHeader("Pragma", "no-cache");
+  responce->setHeader("Expires", "-1");
+  responce->send(404, "text/plain", message);
 }
 
 /** Redirect to captive portal if we got a request for another domain. Return true in
@@ -968,55 +989,70 @@ void WiFiManager::setRemoveDuplicateAPs(boolean removeDuplicates) {
 //Scan for WiFiNetworks in range and sort by signal strength
 //space for indices array allocated on the heap and should be freed when no longer required
 int WiFiManager::scanWifiNetworks(int **indicesptr) {
-  int n = WiFi.scanNetworks();
-  DEBUG_WM(F("Scan done"));
-  if (n == 0) {
-    DEBUG_WM(F("No networks found"));
-    return(0);
-  } else {
-    // Allocate space off the heap for indices array.
-    // This space should be freed when no longer required.
- 	  int* indices = (int *)malloc(n*sizeof(int));
-    if (indices == NULL){
-						DEBUG_WM(F("ERROR: Out of memory"));
-						return(0);
-    }
-    *indicesptr = indices;
-      //sort networks
-    for (size_t i = 0; i < n; i++) {
-      indices[i] = i;
-    }
+  
+  int n = WiFi.scanComplete();
+  if(n == -2){
+    WiFi.scanNetworks(true);
+  } else if(n == -1){
+    DEBUG_WM(F("Scan not complete"));
+  } else if(n){
     
-    std::sort(indices, indices + n, [](const int & a, const int & b){
-      return WiFi.RSSI(a) > WiFi.RSSI(b);
-    });
-      // remove duplicates ( must be RSSI sorted )
-    if(_removeDuplicateAPs) {
-      String cssid;
+    DEBUG_WM(F("Scan done"));
+    for (int i = 0; i < n; ++i){
+      
+      // Allocate space off the heap for indices array.
+      // This space should be freed when no longer required.
+      int* indices = (int *)malloc(n*sizeof(int));
+      if (indices == NULL){
+        DEBUG_WM(F("ERROR: Out of memory"));
+        return(0);
+      }
+      *indicesptr = indices;
       for (size_t i = 0; i < n; i++) {
-        if(indices[i] == -1) continue;
-        cssid = WiFi.SSID(indices[i]);
-        for (size_t j = i + 1; j < n; j++) {
-          if(cssid == WiFi.SSID(indices[j])){
-            DEBUG_WM("DUP AP: " + WiFi.SSID(indices[j]));
-            indices[j] = -1; // set dup aps to index -1
+        indices[i] = i;
+      }
+      
+      std::sort(indices, indices + n, [](const int & a, const int & b){
+        return WiFi.RSSI(a) > WiFi.RSSI(b);
+      });
+      
+      // remove duplicates ( must be RSSI sorted )
+      if(_removeDuplicateAPs) {
+        String cssid;
+        for (size_t i = 0; i < n; i++) {
+          if(indices[i] == -1) continue;
+          cssid = WiFi.SSID(indices[i]);
+          for (size_t j = i + 1; j < n; j++) {
+            if(cssid == WiFi.SSID(indices[j])){
+              DEBUG_WM("DUP AP: " + WiFi.SSID(indices[j]));
+              indices[j] = -1; // set dup aps to index -1
+            }
           }
         }
       }
-    }
-
-    for (int i = 0; i < n; i++) {
-      if(indices[i] == -1) continue; // skip dups
       
-      int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
-      if (!(_minimumQuality == -1 || _minimumQuality < quality)) {
-        indices[i] == -1;
-        DEBUG_WM(F("Skipping due to quality"));
+      for (int i = 0; i < n; i++) {
+        if(indices[i] == -1) continue; // skip dups
+        int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
+        if (!(_minimumQuality == -1 || _minimumQuality < quality)) {
+          indices[i] == -1;
+          DEBUG_WM(F("Skipping due to quality"));
+        }
       }
+      
+      return (n);
+      
+      
+      
     }
-    
-    return (n);
+    WiFi.scanDelete();
+    if(WiFi.scanComplete() == -2){
+      WiFi.scanNetworks(true);
+    }
   }
+
+  DEBUG_WM(F("No networks found"));
+  return 0;
 }
 
 template <typename Generic>

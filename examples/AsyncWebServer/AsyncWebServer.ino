@@ -1,11 +1,13 @@
-#include <ESP8266WiFi.h>       // https://github.com/esp8266/Arduino
 
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 
-
-  // You need define ASYNC_WEB_SERVER before include WiFiManager
-#define ASYNC_WEB_SERVER 1
+  // You need define EXTERNAL_WEB_SERVER before include WiFiManager
+#define EXTERNAL_WEB_SERVER 1
 #include <WiFiManager.h>
+#include <WiFiManagerAsyncWebServer.h>
+
+  // Define AsyncWebServer on port 80
+AsyncWebServer server(80);
 
 void setup() {
   
@@ -17,15 +19,15 @@ void setup() {
   unsigned long startedAt = millis();
   
   
-  
-    // Setup AsyncWebServer at port 80 as internal server
-  WiFiManager wifiManager(AsyncWebServer(80));
+    // Setup AsyncWebServer as internal server
+  WiFiManager wifiManager(&server);
   
   
   
 
   //If no access point name has been previously entered disable timeout.
   if (WiFi.SSID()!="") wifiManager.setConfigPortalTimeout(60);
+  
   
     //it starts an access point
     //and goes into a blocking loop awaiting configuration

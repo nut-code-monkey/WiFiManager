@@ -1,7 +1,7 @@
 #ifndef WiFiManagerAsyncWebServer_h
 #define WiFiManagerAsyncWebServer_h
 
-#ifndef ASYNC_WEB_SERVER
+#ifndef EXTERNAL_WEB_SERVER
 
 #include <WiFiManagerServerBase.h>
 #include <ESP8266WebServer.h>
@@ -17,13 +17,13 @@ namespace wifi_manager {
     
 #pragma mark - Request
     inline
-    virtual void on(const char * path, RestCallback callback) override {
-      _server.on(path, std::bind(callback, (Request *)this, (Responce *)this));
+    virtual void on(const String& path, RestCallback callback) override {
+      _server.on(path.c_str(), std::bind(callback, static_cast<Request *>(this), static_cast<Responce *>(this)));
     }
     
     inline
     virtual void onNotFound(RestCallback callback) override {
-      _server.onNotFound(std::bind(callback, (Request *)this, (Responce *)this));
+      _server.onNotFound(std::bind(callback, static_cast<Request *>(this), static_cast<Responce *>(this)));
     }
     
     inline
@@ -34,6 +34,9 @@ namespace wifi_manager {
     inline
     virtual void handleClient() override {
       _server.handleClient();
+    }
+    
+    virtual void reset() override {
     }
     
 #pragma mark - Request
@@ -48,8 +51,23 @@ namespace wifi_manager {
     };
     
     inline
-    virtual bool methodIsGet() override {
-      return _server.method() == HTTPMethod::HTTP_GET;
+    virtual String methodString() override {
+      switch (_server.method()) {
+        case HTTP_ANY:
+          return "ANY";
+        case HTTP_GET:
+          return "GET";
+        case HTTP_POST:
+          return "POST";
+        case HTTP_PUT:
+          return "PUT";
+        case HTTP_PATCH:
+          return "PATCH";
+        case HTTP_DELETE:
+          return "DELETE";
+        default:
+          return "<NONE>";
+      }
     };
     
     inline
@@ -63,7 +81,7 @@ namespace wifi_manager {
     }
     
     inline
-    virtual String arg(const char * name) override {
+    virtual String arg(const String& name) override {
       return _server.arg(name);
     }
     
@@ -74,12 +92,12 @@ namespace wifi_manager {
     
 #pragma mark - Responce
     inline
-    virtual void send(int code, const char* type, const char* value) override {
+    virtual void send(int code, const String& type, const String& value) override {
       _server.send(code, type, value);
     }
     
     inline
-    virtual void sendHeader(const char* key, const char *value, bool first = false) override {
+    virtual void setHeader(const String& key, const String& value, bool first = false) override {
       _server.sendHeader(key, value, first);
     }
     
