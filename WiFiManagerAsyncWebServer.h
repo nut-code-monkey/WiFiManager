@@ -62,57 +62,36 @@ namespace wifi_manager {
       Adapter(AsyncWebServerRequest* request) : _request(request){
       }
       
-      inline
       virtual String host() override {
         return _request->host();
       };
       
-      inline
       virtual String uri() override {
         return _request->url();
       };
       
-      inline
       virtual String methodString() override {
         return _request->methodToString();
       };
       
-      inline
       virtual String arg(size_t i) override {
         return _request->arg(i);
       }
       
-      inline
       virtual String arg(const String& name) override {
         return _request->arg(name.c_str());
       }
       
-      inline
       virtual size_t args() override {
         return _request->args();
       }
       
-      inline
       virtual String argName(size_t i) override {
         return _request->argName(i);
       }
       
       virtual void redirect(const String& url) override {
-        AsyncWebServerResponse * response = _request->beginResponse(302);
-        response->addHeader("Location",url);
-        response->addHeader("text/plain", "");
-        response->setContentLength(0);
-        _request->send(response);
-      }
-    };
-    
-    struct WebHandler{
-      WebHandler *next;
-      AsyncCallbackWebHandler *handler;
-      WebHandler(AsyncCallbackWebHandler *h): handler(h){}
-      ~WebHandler(){
-        if (next) delete next;
-        handler->onRequest(NULL);
+        _request->redirect(url);
       }
     };
   }
@@ -120,39 +99,20 @@ namespace wifi_manager {
   template <>
   class Server<AsyncWebServer *> : public ServerBase {
     AsyncWebServer* _server;
-    async_web_server::WebHandler* _handler;
   public:
-    Server(AsyncWebServer* server) : _server(server) {
-    }
-    virtual ~Server(){
+    Server(AsyncWebServer* server) : _server(server) {}
+    virtual ~Server() override {
       reset();
-    }
-    
-    void addHendler(AsyncCallbackWebHandler *handler){
-      using namespace async_web_server;
-      
-      if (!_handler) {
-        _handler = new WebHandler(handler);
-      }
-      else{
-        WebHandler *h = _handler;
-        while (h->next) {
-          h = h->next;
-        }
-        h->next = new WebHandler(handler);
-      }
     }
     
     virtual void on(const String& path, RestCallback callback) override {
       using namespace async_web_server;
       
-      auto handler = _server->on(path.c_str(), [=](AsyncWebServerRequest *request){
+      _server->on(path.c_str(), HTTP_ANY, [=](AsyncWebServerRequest *request){
         Adapter<Request> requestAdapter(request);
         Adapter<Responce> responceAdapter(request);
         callback(&requestAdapter, &responceAdapter);
       });
-
-      addHendler(&handler);
     }
     
     virtual void onNotFound(RestCallback callback)  override {
@@ -165,18 +125,13 @@ namespace wifi_manager {
       });
     }
     
-    inline
     virtual void begin() override {
       _server->begin();
     }
     virtual void handleClient() override {}
     
     virtual void reset() override {
-      if (_handler) {
-        delete _handler;
-        _handler = NULL;
-      }
-      _server->onNotFound(NULL);
+      _server->reset();
     }
   };
 }

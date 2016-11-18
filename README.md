@@ -206,13 +206,13 @@ Usage scenario would be:
 - add the custom parameters to WiFiManager using
  ```cpp
  // id/name, placeholder/prompt, default, length
- WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqtt_server, 40);
+ wifi_manager::Parameter custom_mqtt_server("server", "mqtt server", mqtt_server, 40);
  wifiManager.addParameter(&custom_mqtt_server);
 
  ```
 - start configuration portal and you can set /change the values
 - once configuration is done and connection is established [save config callback]() is called
-- once WiFiManager returns control to your application, read and save the new values using the `WiFiManagerParameter` object.
+- once WiFiManager returns control to your application, read and save the new values using the `wifi_manager::Parameter` object.
  ```cpp
  mqtt_server = custom_mqtt_server.getValue();
  ```  

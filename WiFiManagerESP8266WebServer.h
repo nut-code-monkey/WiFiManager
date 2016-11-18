@@ -16,22 +16,18 @@ namespace wifi_manager {
     virtual ~Server() {}
     
 #pragma mark - Request
-    inline
     virtual void on(const String& path, RestCallback callback) override {
       _server.on(path.c_str(), std::bind(callback, static_cast<Request *>(this), static_cast<Responce *>(this)));
     }
     
-    inline
     virtual void onNotFound(RestCallback callback) override {
       _server.onNotFound(std::bind(callback, static_cast<Request *>(this), static_cast<Responce *>(this)));
     }
     
-    inline
     virtual void begin() override {
       _server.begin();
     }
     
-    inline
     virtual void handleClient() override {
       _server.handleClient();
     }
@@ -40,17 +36,14 @@ namespace wifi_manager {
     }
     
 #pragma mark - Request
-    inline
     virtual String host() override {
       return _server.hostHeader();
     };
     
-    inline
-    virtual String uri(){
+    virtual String uri() override {
       return _server.uri();
     };
     
-    inline
     virtual String methodString() override {
       switch (_server.method()) {
         case HTTP_ANY:
@@ -70,33 +63,27 @@ namespace wifi_manager {
       }
     };
     
-    inline
     virtual size_t args() override {
       return _server.args();
     };
     
-    inline
     virtual String arg(size_t i) override {
       return _server.arg(i);
     }
     
-    inline
     virtual String arg(const String& name) override {
       return _server.arg(name);
     }
     
-    inline
     virtual String argName(size_t i) override {
       return _server.argName(i);
     }
     
 #pragma mark - Responce
-    inline
     virtual void send(int code, const String& type, const String& value) override {
       _server.send(code, type, value);
     }
     
-    inline
     virtual void setHeader(const String& key, const String& value, bool first = false) override {
       _server.sendHeader(key, value, first);
     }

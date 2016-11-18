@@ -102,7 +102,7 @@ void loop() {
     // Format: <ID> <Placeholder text> <default value> <length> <custom HTML> <label placement>
 
     // Thingspeak API Key - this is a straight forward string parameter
-    WiFiManagerParameter p_thingspeakApiKey("thingspeakapikey", "Thingspeak API Key", thingspeakApiKey, 17);
+    wifi_manager::Parameter p_thingspeakApiKey("thingspeakapikey", "Thingspeak API Key", thingspeakApiKey, 17);
 
     // DHT-22 sensor present or not - bool parameter visualized using checkbox, so couple of things to note
     // - value is always 'T' for true. When the HTML form is submitted this is the value that will be 
@@ -115,18 +115,18 @@ void loop() {
     if (sensorDht22) {
       strcat(customhtml, " checked");
     }
-    WiFiManagerParameter p_sensorDht22("sensordht22", "DHT-22 Sensor", "T", 2, customhtml, WFM_LABEL_AFTER);
+    wifi_manager::Parameter p_sensorDht22("sensordht22", "DHT-22 Sensor", "T", 2, customhtml, WFM_LABEL_AFTER);
 
     // I2C SCL and SDA parameters are integers so we need to convert them to char array but
     // no other special considerations
     char convertedValue[3];
     sprintf(convertedValue, "%d", pinSda);
-    WiFiManagerParameter p_pinSda("pinsda", "I2C SDA pin", convertedValue, 3);
+    wifi_manager::Parameter p_pinSda("pinsda", "I2C SDA pin", convertedValue, 3);
     sprintf(convertedValue, "%d", pinScl);
-    WiFiManagerParameter p_pinScl("pinscl", "I2C SCL pin", convertedValue, 3);
+    wifi_manager::Parameter p_pinScl("pinscl", "I2C SCL pin", convertedValue, 3);
 
     // Just a quick hint
-    WiFiManagerParameter p_hint("<small>*Hint: if you want to reuse the currently active WiFi credentials, leave SSID and Password fields empty</small>");
+    wifi_manager::Parameter p_hint("<small>*Hint: if you want to reuse the currently active WiFi credentials, leave SSID and Password fields empty</small>");
     
     // Initialize WiFIManager
     WiFiManager wifiManager;

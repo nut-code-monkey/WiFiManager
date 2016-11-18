@@ -77,32 +77,26 @@ namespace wifi_manager {
     _customHTML = custom;
   }
   
-  inline
   const char* Parameter::getValue() const {
     return _value;
   }
   
-  inline
   const char* Parameter::getID() const {
     return _id;
   }
   
-  inline
   const char* Parameter::getPlaceholder() const {
     return _placeholder;
   }
   
-  inline
   size_t Parameter::getValueLength() const {
     return _length;
   }
   
-  inline
   int Parameter::getLabelPlacement() const {
     return _labelPlacement;
   }
   
-  inline
   const char* Parameter::getCustomHTML() const {
     return _customHTML;
   }
@@ -117,7 +111,6 @@ void WiFiManager::addParameter(wifi_manager::Parameter *p) {
 }
 
 void WiFiManager::setupConfigPortal() {
-  Serial.println("WiFiManager::setupConfigPortal()");
   stopConfigPortal = false; //Signal not to close config portal
   /*This library assumes autoconnect is set to 1. It usually is
   but just in case check the setting and turn on autoconnect if it is off.
@@ -834,7 +827,6 @@ void WiFiManager::handleInfo(wifi_manager::Request* request, wifi_manager::Respo
   page += FPSTR(wifi_manager::HTML::END);
 
   responce->send(200, "text/html", page);
-
   DEBUG_WM(F("Sent info page"));
 }
 /** Handle the state page */

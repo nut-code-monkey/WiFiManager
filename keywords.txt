@@ -7,7 +7,8 @@
 #######################################
 
 WiFiManager	KEYWORD1
-WiFiManagerParameter KEYWORD1
+wifi_manager KEYWORD1
+Parameter KEYWORD1
 
 
 #######################################
