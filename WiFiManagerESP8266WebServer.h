@@ -15,7 +15,6 @@ namespace wifi_manager {
     Server(const ESP8266WebServer &server) : _server(server){}
     virtual ~Server() {}
     
-#pragma mark - Request
     virtual void on(const String& path, RestCallback callback) override {
       _server.on(path.c_str(), std::bind(callback, static_cast<Request *>(this), static_cast<Responce *>(this)));
     }
@@ -35,7 +34,6 @@ namespace wifi_manager {
     virtual void reset() override {
     }
     
-#pragma mark - Request
     virtual String host() override {
       return _server.hostHeader();
     };
@@ -79,7 +77,6 @@ namespace wifi_manager {
       return _server.argName(i);
     }
     
-#pragma mark - Responce
     virtual void send(int code, const String& type, const String& value) override {
       _server.send(code, type, value);
     }

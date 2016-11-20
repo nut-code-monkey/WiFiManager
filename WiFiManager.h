@@ -44,9 +44,9 @@ namespace wifi_manager{
   class Parameter {
   public:
     Parameter(const char *custom);
-    Parameter(const char *id, const char *placeholder, const char *defaultValue, int length);
-    Parameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom);
-    Parameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement);
+    Parameter(const char *id, const char *placeholder, const char *defaultValue, size_t length);
+    Parameter(const char *id, const char *placeholder, const char *defaultValue, size_t length, const char *custom);
+    Parameter(const char *id, const char *placeholder, const char *defaultValue, size_t length, const char *custom, int labelPlacement);
 
     const char *getID() const;
     const char *getValue() const;
@@ -62,7 +62,7 @@ namespace wifi_manager{
     int         _labelPlacement;
     const char *_customHTML;
 
-    void init(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement);
+    void init(const char *id, const char *placeholder, const char *defaultValue, size_t length, const char *custom, int labelPlacement);
   };
 }
 
@@ -164,7 +164,7 @@ public:
     IPAddress     _sta_static_gw;
     IPAddress     _sta_static_sn;
 
-    int           _paramsCount            = 0;
+    size_t        _paramsCount            = 0;
     int           _minimumQuality         = -1;
     boolean       _removeDuplicateAPs     = true;
     boolean       _shouldBreakAfterConfig = false;

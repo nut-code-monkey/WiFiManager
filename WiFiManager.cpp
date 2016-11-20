@@ -21,7 +21,7 @@ extern "C" {
 namespace wifi_manager {
   
   namespace HTML{
-    const char HTML_200[] PROGMEM             = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
+    const char HTML_200[] PROGMEM        = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
     const char HEAD_BEGIN[] PROGMEM      = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/><title>{v}</title>";
     const char STYLE[] PROGMEM           = "<style>body,textarea,input,select{background: 0;border-radius: 0;font: 16px sans-serif;margin: 0}textarea,input,select{outline: 0;font-size: 14px;border: 1px solid #ccc;padding: 8px;width: 90%}.btn a{text-decoration: none}.container{margin: auto;width: 90%}@media(min-width:1200px){.container{margin: auto;width: 30%}}@media(min-width:768px) and (max-width:1200px){.container{margin: auto;width: 50%}}.btn,h2{font-size: 2em}h1{font-size: 3em}.btn{background: #0ae;border-radius: 4px;border: 0;color: #fff;cursor: pointer;display: inline-block;margin: 2px 0;padding: 10px 14px 11px;width: 100%}.btn:hover{background: #09d}.btn:active,.btn:focus{background: #08b}label>*{display: inline}form>*{display: block;margin-bottom: 10px}textarea:focus,input:focus,select:focus{border-color: #5ab}.msg{background: #def;border-left: 5px solid #59d;padding: 1.5em}.q{float: right;width: 64px;text-align: right}.l{background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAALVBMVEX///8EBwfBwsLw8PAzNjaCg4NTVVUjJiZDRUUUFxdiZGSho6OSk5Pg4eFydHTCjaf3AAAAZElEQVQ4je2NSw7AIAhEBamKn97/uMXEGBvozkWb9C2Zx4xzWykBhFAeYp9gkLyZE0zIMno9n4g19hmdY39scwqVkOXaxph0ZCXQcqxSpgQpONa59wkRDOL93eAXvimwlbPbwwVAegLS1HGfZAAAAABJRU5ErkJggg==') no-repeat left center;background-size: 1em}input[type='checkbox']{float: left;width: 20px}.table td{padding:.5em;text-align:left}.table tbody>:nth-child(2n-1){background:#ddd}.statconf{display:none}</style>";
     const char SCRIPT[] PROGMEM          = "<script>function c(l){document.getElementById('s').value=l.innerText||l.textContent;document.getElementById('p').focus();};function togglediv(){el=document.getElementById('statconf');el.className=(el.className == 'statconf') ? '' : 'statconf'}</script>";
@@ -33,7 +33,7 @@ namespace wifi_manager {
     const char FORM_LABEL[] PROGMEM      = "<label for=\"{i}\">{p}</label>";
     const char FORM_PARAM[] PROGMEM      = "<input id=\"{i}\" name=\"{n}\" length={l} placeholder=\"{p}\" value=\"{v}\" {c}>";
     const char FORM_OPTIONS_START[] PROGMEM    = "<input type=\"checkbox\" onclick=\"togglediv()\" /><label> Static IP configuration</label><div id=\"statconf\" class=\"statconf\"><br/><label>Note: leave it blank if you are using DHCP</label><br/><br/>";
-    const char FORM_OPTIONS_END[] PROGMEM    = "</div><br/>";
+    const char FORM_OPTIONS_END[] PROGMEM = "</div><br/>";
     const char FORM_END[] PROGMEM        = "<button class=\"btn\" type=\"submit\">save</button></form>";
     const char SAVED[] PROGMEM           = "<div class=\"msg\"><strong>Credentials Saved</strong><br>Trying to connect ESP to the {x} network.<br>Give it 10 seconds or so and check <a href=\"/\">how it went.</a> <p/>The {v} network you are connected to will be restarted on the radio channel of the {x} network. You may have to manually reconnect to the {v} network.</div>";
     const char END[] PROGMEM             = "</div></body></html>";
@@ -49,19 +49,19 @@ namespace wifi_manager {
     _customHTML = custom;
   }
   
-  Parameter::Parameter(const char *id, const char *placeholder, const char *defaultValue, int length) {
+  Parameter::Parameter(const char *id, const char *placeholder, const char *defaultValue, size_t length) {
     init(id, placeholder, defaultValue, length, "", WFM_LABEL_BEFORE);
   }
   
-  Parameter::Parameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom) {
+  Parameter::Parameter(const char *id, const char *placeholder, const char *defaultValue, size_t length, const char *custom) {
     init(id, placeholder, defaultValue, length, custom, WFM_LABEL_BEFORE);
   }
   
-  Parameter::Parameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement) {
+  Parameter::Parameter(const char *id, const char *placeholder, const char *defaultValue, size_t length, const char *custom, int labelPlacement) {
     init(id, placeholder, defaultValue, length, custom, labelPlacement);
   }
   
-  void Parameter::init(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom, int labelPlacement) {
+  void Parameter::init(const char *id, const char *placeholder, const char *defaultValue, size_t length, const char *custom, int labelPlacement) {
     _id = id;
     _placeholder = placeholder;
     _length = length;
@@ -289,7 +289,7 @@ boolean  WiFiManager::startConfigPortal(char const *apName, char const *apPasswo
     yield();
   }
   WiFi.mode(WIFI_STA);
-  if (TimedOut & WiFi.status() != WL_CONNECTED) {
+  if (TimedOut && WiFi.status() != WL_CONNECTED) {
     WiFi.begin();
     int connRes = waitForConnectResult();
     DEBUG_WM ("Timed out connection result: ");
@@ -517,7 +517,7 @@ void WiFiManager::handleWifi(wifi_manager::Request* request, wifi_manager::Respo
       page += F("No networks found. Refresh to scan again.");
     } else {
       //display networks in page
-      for (size_t i = 0; i < n; i++) {
+      for (int i = 0; i < n; i++) {
         if(indices[i] == -1) continue; // skip dups and those that are below the required quality
 
         DEBUG_WM(WiFi.SSID(indices[i]));
@@ -765,7 +765,6 @@ void WiFiManager::handleInfo(wifi_manager::Request* request, wifi_manager::Respo
   page += _customHeadElement;
   page += FPSTR(wifi_manager::HTML::HEAD_END);
   page += F("<h2>WiFi Information</h2>");
-  page += F("Android app from <a href=\"https://play.google.com/store/apps/details?id=au.com.umranium.espconnect\">https://play.google.com/store/apps/details?id=au.com.umranium.espconnect</a> provides easier ESP WiFi configuration.<p/>");
   reportStatus(page);
   page += F("<h3>Device Data</h3>");
   page += F("<table class=\"table\">");
@@ -810,7 +809,7 @@ void WiFiManager::handleInfo(wifi_manager::Request* request, wifi_manager::Respo
   page += F("<td>Enter WiFI information after conducting a WiFi Scan.</td></tr>");
   page += F("<tr><td><a href=\"/0wifi\">/0wifi</a></td>");
   page += F("<td>Enter WiFI information without conducting a WiFi Scan.</td></tr>");
-  page += F("<tr><td><a href=\"/wifisave\">/wifisave\</a></td>");
+  page += F("<tr><td><a href=\"/wifisave\">/wifisave</a></td>");
   page += F("<td>Save WiFi configuration information and configure device. Needs variables supplied.</td></tr>");
   page += F("<tr><td><a href=\"/close\">/close</a></td>");
   page += F("<td>Close the configuration server and configuration WiFi network.</td></tr>");
@@ -823,7 +822,6 @@ void WiFiManager::handleInfo(wifi_manager::Request* request, wifi_manager::Respo
   page += F("<tr><td><a href=\"/scan\">/scan</a></td>");
   page += F("<td>Run a WiFi scan and return results in JSON format. Interface for programmatic WiFi configuration.</td></tr>");
   page += F("</table>");
-  page += F("<p/>More information about WiFiManager at <a href=\"https://github.com/kentaylor/WiFiManager\">https://github.com/kentaylor/WiFiManager</a>.");
   page += FPSTR(wifi_manager::HTML::END);
 
   responce->send(200, "text/html", page);
@@ -858,7 +856,7 @@ void WiFiManager::handleState(wifi_manager::Request* request, wifi_manager::Resp
 }
 
 /** Handle the scan page */
-void WiFiManager::handleScan(wifi_manager::Request* request, wifi_manager::Responce* responce) {
+void WiFiManager::handleScan(wifi_manager::Request* request __attribute__((unused)), wifi_manager::Responce* responce) {
   DEBUG_WM(F("State - json"));
   responce->setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   responce->setHeader("Pragma", "no-cache");
@@ -875,7 +873,7 @@ void WiFiManager::handleScan(wifi_manager::Request* request, wifi_manager::Respo
   DEBUG_WM(F("In handleScan, scanWifiNetworks done"));
   String page = F("{\"Access_Points\":[");
   //display networks in page
-  for (size_t i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     if(indices[i] == -1) continue; // skip duplicates and those that are below the required quality
     if(i != 0) page += F(", ");
     DEBUG_WM(WiFi.SSID(indices[i]));
@@ -1000,7 +998,7 @@ int WiFiManager::scanWifiNetworks(int **indicesptr) {
         return(0);
       }
       *indicesptr = indices;
-      for (size_t i = 0; i < n; i++) {
+      for (int i = 0; i < n; i++) {
         indices[i] = i;
       }
       
@@ -1011,10 +1009,10 @@ int WiFiManager::scanWifiNetworks(int **indicesptr) {
       // remove duplicates ( must be RSSI sorted )
       if(_removeDuplicateAPs) {
         String cssid;
-        for (size_t i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
           if(indices[i] == -1) continue;
           cssid = WiFi.SSID(indices[i]);
-          for (size_t j = i + 1; j < n; j++) {
+          for (int j = i + 1; j < n; j++) {
             if(cssid == WiFi.SSID(indices[j])){
               DEBUG_WM("DUP AP: " + WiFi.SSID(indices[j]));
               indices[j] = -1; // set dup aps to index -1
@@ -1027,7 +1025,7 @@ int WiFiManager::scanWifiNetworks(int **indicesptr) {
         if(indices[i] == -1) continue; // skip dups
         int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
         if (!(_minimumQuality == -1 || _minimumQuality < quality)) {
-          indices[i] == -1;
+          indices[i] = -1;
           DEBUG_WM(F("Skipping due to quality"));
         }
       }
@@ -1070,7 +1068,7 @@ int WiFiManager::getRSSIasQuality(int RSSI) {
 
 /** Is this an IP? */
 boolean WiFiManager::isIp(String str) {
-  for (int i = 0; i < str.length(); i++) {
+  for (unsigned int i = 0; i < str.length(); i++) {
     int c = str.charAt(i);
     if (c != '.' && (c < '0' || c > '9')) {
       return false;
