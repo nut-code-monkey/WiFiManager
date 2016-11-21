@@ -163,15 +163,15 @@ void WiFiManager::setupConfigPortal() {
   using namespace std::placeholders;
   server->reset();
   /* Setup web pages: root, wifi config pages, SO captive portal detectors and not found. */
-  server->on("/", std::bind(&WiFiManager::handleRoot, this, _1, _2));
-  server->on("/wifi", std::bind(&WiFiManager::handleWifi, this, _1, _2, true));
-  server->on("/0wifi", std::bind(&WiFiManager::handleWifi, this, _1, _2, false));
-  server->on("/wifisave", std::bind(&WiFiManager::handleWifiSave, this, _1, _2));
-  server->on("/close", std::bind(&WiFiManager::handleServerClose, this, _1, _2));
-  server->on("/i", std::bind(&WiFiManager::handleInfo, this, _1, _2));
-  server->on("/r", std::bind(&WiFiManager::handleReset, this, _1, _2));
-  server->on("/state", std::bind(&WiFiManager::handleState, this, _1, _2));
-  server->on("/scan", std::bind(&WiFiManager::handleScan, this, _1, _2));
+  server->handle("/", std::bind(&WiFiManager::handleRoot, this, _1, _2));
+  server->handle("/wifi", std::bind(&WiFiManager::handleWifi, this, _1, _2, true));
+  server->handle("/0wifi", std::bind(&WiFiManager::handleWifi, this, _1, _2, false));
+  server->handle("/wifisave", std::bind(&WiFiManager::handleWifiSave, this, _1, _2));
+  server->handle("/close", std::bind(&WiFiManager::handleServerClose, this, _1, _2));
+  server->handle("/i", std::bind(&WiFiManager::handleInfo, this, _1, _2));
+  server->handle("/r", std::bind(&WiFiManager::handleReset, this, _1, _2));
+  server->handle("/state", std::bind(&WiFiManager::handleState, this, _1, _2));
+  server->handle("/scan", std::bind(&WiFiManager::handleScan, this, _1, _2));
   server->onNotFound (std::bind(&WiFiManager::handleNotFound, this, _1, _2));
   server->begin(); // Web server start
   DEBUG_WM(F("HTTP server started"));

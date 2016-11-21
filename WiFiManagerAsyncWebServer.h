@@ -105,7 +105,7 @@ namespace wifi_manager {
       reset();
     }
     
-    virtual void on(const String& path, RestCallback callback) override {
+    virtual void handle(const String& path, RestCallback callback) override {
       using namespace async_web_server;
       
       _server->on(path.c_str(), HTTP_ANY, [=](AsyncWebServerRequest *request){

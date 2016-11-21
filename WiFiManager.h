@@ -17,11 +17,6 @@
 
 #include "WiFiManagerServerBase.h"
 
-#ifndef EXTERNAL_WEB_SERVER
-#include "WiFiManagerESP8266WebServer.h"
-#include <ESP8266WebServer.h>
-#endif
-
 #include <DNSServer.h>
 #include "FS.h"
 #include <ArduinoJson.h>
@@ -70,17 +65,9 @@ class WiFiManager
 {
   std::function<wifi_manager::ServerBase *()> newServer;
 public:
-  
-  #ifndef EXTERNAL_WEB_SERVER
-    WiFiManager() : newServer([]{
-      return new wifi_manager::Server<ESP8266WebServer>(ESP8266WebServer(80));
-    }) {}
-  #else
+
     template <typename T>
-    WiFiManager(T t) : newServer([&](){
-      return new wifi_manager::Server<T>(t);
-    }) {}
-  #endif
+    WiFiManager(T t) : newServer([&](){ return new wifi_manager::Server<T>(t); }) {}
   
     boolean       autoConnect(); //Deprecated. Do not use.
     boolean       autoConnect(char const *apName, char const *apPassword = NULL); //Deprecated. Do not use.

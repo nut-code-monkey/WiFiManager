@@ -28,7 +28,7 @@ namespace wifi_manager {
   
   class ServerBase{
   public:
-    virtual void on(const String& path, RestCallback callback) = 0;
+    virtual void handle(const String& path, RestCallback callback) = 0;
     virtual void onNotFound(RestCallback) = 0;
     virtual void begin() = 0;
     virtual void handleClient() = 0;
